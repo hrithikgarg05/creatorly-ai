@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Creatorly AI — Know Your Worth as a Creator</title>
+  <meta name="description" content="Connect your Instagram and instantly get your analytics, engagement rate, and a personalized India rate card. Built for Indian creators." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="landing-body">
+
+  <!-- Animated background orbs -->
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <nav class="nav container">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">Creatorly<span class="logo-accent"> AI</span></span>
+      </div>
+      <a href="https://developers.facebook.com/docs/instagram" target="_blank" class="nav-link">API Docs ↗</a>
+    </nav>
+  </header>
+
+  <!-- ── Error Banner ── -->
+  <div class="error-banner" id="errorBanner" style="display:none;">
+    <div class="container">
+      <div class="error-content">
+        <span class="error-icon">⚠️</span>
+        <div class="error-text">
+          <strong id="errorTitle">Something went wrong</strong>
+          <p id="errorDesc"></p>
+        </div>
+        <button class="error-close" onclick="document.getElementById('errorBanner').style.display='none'">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Hero ── -->
+  <main>
+    <section class="hero container">
+      <div class="hero-badge animate-fade-up">
+        <span class="badge-dot"></span>
+        Made for Indian Creators
+      </div>
+
+      <h1 class="hero-title animate-fade-up delay-1">
+        Know Your Worth.<br />
+        <span class="gradient-text">Get Paid Right.</span>
+      </h1>
+
+      <p class="hero-subtitle animate-fade-up delay-2">
+        Connect your Instagram and get instant analytics, engagement rate, and a
+        <strong>personalized India rate card</strong> — powered directly by Meta's API.
+      </p>
+
+      <div class="hero-cta animate-fade-up delay-3">
+        <a href="/auth/instagram" class="btn-primary" id="connectBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+          </svg>
+          Connect Instagram
+        </a>
+        <p class="cta-note">Business or Creator accounts only · No posting access</p>
+      </div>
+
+      <!-- Stats strip -->
+      <div class="stats-strip animate-fade-up delay-4">
+        <div class="stat-item">
+          <span class="stat-number">100%</span>
+          <span class="stat-label">Via Meta API</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">₹CPM</span>
+          <span class="stat-label">India Rate Model</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">Real</span>
+          <span class="stat-label">Live Data</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── How it works ── -->
+    <section class="how-it-works container">
+      <h2 class="section-title">How it works</h2>
+      <div class="steps-grid">
+        <div class="step-card animate-fade-up">
+          <div class="step-number">01</div>
+          <div class="step-icon">🔗</div>
+          <h3>Connect Instagram</h3>
+          <p>Securely authorize via Facebook OAuth. We only read data — never post.</p>
+        </div>
+        <div class="step-card animate-fade-up delay-1">
+          <div class="step-number">02</div>
+          <div class="step-icon">📊</div>
+          <h3>Get Your Analytics</h3>
+          <p>We fetch your last 12 posts, calculate engagement rate, impressions, and more.</p>
+        </div>
+        <div class="step-card animate-fade-up delay-2">
+          <div class="step-number">03</div>
+          <div class="step-icon">💰</div>
+          <h3>See Your Rate Card</h3>
+          <p>Get a personalized India rate card — Reels, Stories, Posts, and Bundle pricing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Requirements ── -->
+    <section class="requirements container">
+      <div class="req-card">
+        <h3>Before you connect</h3>
+        <ul class="req-list">
+          <li>
+            <span class="req-check">✓</span>
+            Instagram account must be <strong>Business</strong> or <strong>Creator</strong> type
+          </li>
+          <li>
+            <span class="req-check">✓</span>
+            Instagram must be <strong>linked to a Facebook Page</strong>
+          </li>
+          <li>
+            <span class="req-check">✓</span>
+            You must be added as a <strong>Tester</strong> in the Meta Developer Console
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <div class="container">
+      <p>Creatorly AI · Data fetched directly from Meta Graph API · Not affiliated with Meta</p>
+    </div>
+  </footer>
+
+  <script src="/js/landing.js"></script>
+</body>
+</html>

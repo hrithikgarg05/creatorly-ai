@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Analytics — Creatorly AI</title>
+  <meta name="description" content="Your Instagram analytics and India rate card powered by Creatorly AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="profile-body">
+
+  <!-- Animated background orbs -->
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <nav class="nav container">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">Creatorly<span class="logo-accent"> AI</span></span>
+      </div>
+      <a href="/logout" class="btn-outline-sm" id="logoutBtn">Disconnect</a>
+    </nav>
+  </header>
+
+  <!-- ── Loading state ── -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loader-ring"></div>
+    <p>Fetching your Instagram data…</p>
+  </div>
+
+  <!-- ── Main content (hidden until loaded) ── -->
+  <main class="profile-main" id="profileMain" style="opacity:0;">
+
+    <div class="container">
+
+      <!-- ── Profile Card ── -->
+      <section class="profile-card glass-panel animate-fade-up">
+        <div class="profile-avatar-wrap">
+          <img id="profilePicture" src="" alt="Profile picture" class="profile-avatar" />
+          <div class="avatar-ring"></div>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name-row">
+            <h1 id="profileName" class="profile-name"></h1>
+            <span class="verified-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+              Verified via Instagram
+            </span>
+          </div>
+          <p id="profileUsername" class="profile-username"></p>
+          <p id="profileBio" class="profile-bio"></p>
+        </div>
+      </section>
+
+      <!-- ── Core Stats ── -->
+      <section class="stats-section animate-fade-up delay-1">
+        <div class="stats-grid">
+          <div class="stat-card glass-panel" id="statFollowers">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="followersCount">—</div>
+            <div class="stat-name">Followers</div>
+          </div>
+          <div class="stat-card glass-panel" id="statFollowing">
+            <div class="stat-icon">📌</div>
+            <div class="stat-value" id="followingCount">—</div>
+            <div class="stat-name">Following</div>
+          </div>
+          <div class="stat-card glass-panel" id="statPosts">
+            <div class="stat-icon">🖼️</div>
+            <div class="stat-value" id="postsCount">—</div>
+            <div class="stat-name">Total Posts</div>
+          </div>
+          <div class="stat-card glass-panel engagement-card" id="statEngagement">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-value engagement-value">
+              <span id="engagementRate">—</span>
+              <span class="stat-unit">%</span>
+            </div>
+            <div class="stat-name">Engagement Rate</div>
+            <div class="engagement-label" id="engagementLabel"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Averages ── -->
+      <section class="averages-section animate-fade-up delay-2">
+        <h2 class="section-title-sm">Based on last <span id="postsAnalyzed">12</span> posts</h2>
+        <div class="averages-grid">
+          <div class="avg-card glass-panel">
+            <span class="avg-icon">❤️</span>
+            <div>
+              <div class="avg-value" id="avgLikes">—</div>
+              <div class="avg-label">Avg Likes</div>
+            </div>
+          </div>
+          <div class="avg-card glass-panel">
+            <span class="avg-icon">💬</span>
+            <div>
+              <div class="avg-value" id="avgComments">—</div>
+              <div class="avg-label">Avg Comments</div>
+            </div>
+          </div>
+          <div class="avg-card glass-panel">
+            <span class="avg-icon">👁️</span>
+            <div>
+              <div class="avg-value" id="avgImpressions">—</div>
+              <div class="avg-label">Avg Impressions</div>
+            </div>
+          </div>
+          <div class="avg-card glass-panel">
+            <span class="avg-icon">📡</span>
+            <div>
+              <div class="avg-value" id="avgReach">—</div>
+              <div class="avg-label">Avg Reach</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Recent Reels ── -->
+      <section class="reels-section animate-fade-up delay-3" id="reelsSection" style="display:none;">
+        <h2 class="section-title-sm">Recent Reels</h2>
+        <div class="reels-grid" id="reelsGrid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- ── Rate Card ── -->
+      <section class="rate-card-section glass-panel animate-fade-up delay-3">
+        <div class="rate-card-header">
+          <h2 class="rate-card-title">
+            🇮🇳 Your India Rate Card
+          </h2>
+          <p class="rate-card-subtitle">Calculated using CPM model · ₹600 CPM base · Engagement-adjusted</p>
+        </div>
+
+        <div class="rate-grid">
+          <div class="rate-item glass-panel">
+            <div class="rate-type-icon">🎬</div>
+            <div class="rate-type-name">Instagram Reel</div>
+            <div class="rate-type-desc">Short-form video content</div>
+            <div class="rate-amount" id="reelRate">₹—</div>
+          </div>
+          <div class="rate-item glass-panel">
+            <div class="rate-type-icon">⏱️</div>
+            <div class="rate-type-name">Story (3 Frames)</div>
+            <div class="rate-type-desc">Ephemeral story content</div>
+            <div class="rate-amount" id="storyRate">₹—</div>
+          </div>
+          <div class="rate-item glass-panel">
+            <div class="rate-type-icon">🖼️</div>
+            <div class="rate-type-name">Static Post</div>
+            <div class="rate-type-desc">Feed photo or carousel</div>
+            <div class="rate-amount" id="postRate">₹—</div>
+          </div>
+          <div class="rate-item glass-panel bundle-item">
+            <div class="bundle-badge">BEST VALUE · 15% OFF</div>
+            <div class="rate-type-icon">🎁</div>
+            <div class="rate-type-name">Full Bundle</div>
+            <div class="rate-type-desc">Reel + Story + Post</div>
+            <div class="rate-amount bundle-amount" id="bundleRate">₹—</div>
+            <div class="bundle-savings" id="bundleSavings"></div>
+          </div>
+        </div>
+
+        <div class="rate-disclaimer">
+          <p>💡 These are <strong>suggested minimum rates</strong> based on your reach and engagement. Rates may vary by niche, brand, and negotiation.</p>
+        </div>
+      </section>
+
+      <!-- ── Share / Export ── -->
+      <section class="actions-section animate-fade-up delay-4">
+        <button class="btn-primary" id="copyRateCard" onclick="copyRateCard()">
+          📋 Copy Rate Card
+        </button>
+        <a href="/" class="btn-outline">← Back to Home</a>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <div class="container">
+      <p>Creatorly AI · Data fetched directly from Meta Graph API · Not affiliated with Meta</p>
+    </div>
+  </footer>
+
+  <script src="/js/profile.js"></script>
+</body>
+</html>
