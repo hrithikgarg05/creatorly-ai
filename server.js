@@ -252,21 +252,43 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
+// Debug: see raw API responses (only usable by logged-in user)
+app.get('/api/debug', async (req, res) => {
+  const accessToken = req.signedCookies.ig_token;
+  if (!accessToken) return res.status(401).json({ error: 'Not logged in' });
+  try {
+    const profile = await graphFetch(`${GRAPH_BASE}/me?fields=id,username&access_token=${accessToken}`);
+    const media = await graphFetch(`${GRAPH_BASE}/me/media?fields=id,media_type&limit=3&access_token=${accessToken}`);
+    const firstPostId = media.data?.[0]?.id;
+    const postInsights = firstPostId ? await graphFetchSafe(
+      `${GRAPH_BASE}/${firstPostId}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
+    ) : null;
+    const now = Math.floor(Date.now() / 1000);
+    const since28 = now - (28 * 24 * 60 * 60);
+    const acctInsights = await graphFetchSafe(
+      `${GRAPH_BASE}/me/insights?metric=reach,impressions,profile_views&period=day&since=${since28}&until=${now}&access_token=${accessToken}`
+    );
+    res.json({ profile, firstPostId, postInsights, acctInsights });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function calculateMetrics(posts, followers) {
-  if (!posts.length) return { engagementRate: 0, avgLikes: 0, avgComments: 0, avgSaved: 0, saveRate: 0, avgImpressions: 0, avgReach: 0, hasRealReach: false };
+  if (!posts.length) return { engagementRate: null, avgLikes: 0, avgComments: 0, avgSaved: 0, saveRate: null, avgImpressions: null, avgReach: null, hasRealReach: false };
   const n = posts.length;
   const avgLikes = Math.round(posts.reduce((s, p) => s + (p.like_count || 0), 0) / n);
   const avgComments = Math.round(posts.reduce((s, p) => s + (p.comments_count || 0), 0) / n);
   const avgSaved = Math.round(posts.reduce((s, p) => s + (p.saved || 0), 0) / n);
 
-  // Use real reach if the API returned it, else fall back to followers-based estimate
+  // Only use real reach from the Insights API — never estimate it
   const realReachData = posts.filter(p => p.reach > 0);
   const hasRealReach = realReachData.length > 0;
   const avgReach = hasRealReach
     ? Math.round(realReachData.reduce((s, p) => s + p.reach, 0) / realReachData.length)
-    : null; // null means "not available"
+    : null;
 
   const realImpressionsData = posts.filter(p => p.impressions > 0);
   const avgImpressions = realImpressionsData.length > 0
@@ -274,16 +296,15 @@ function calculateMetrics(posts, followers) {
     : null;
 
   // ── ENGAGEMENT RATE ──
-  // Industry standard formula: (likes + comments) / followers * 100
-  // We add saves too since the API provides it, but use FOLLOWERS as denominator
-  // (not reach) unless real reach data is available
-  const followerBase = followers || 1;
-  const totalEngagement = avgLikes + avgComments + avgSaved;
-  const engagementRate = parseFloat((totalEngagement / followerBase * 100).toFixed(2));
-
-  // Save rate = saves / followers (or saves / avg reach if available)
-  const saveBase = (hasRealReach && avgReach > 0) ? avgReach : followerBase;
-  const saveRate = avgSaved > 0 ? parseFloat((avgSaved / saveBase * 100).toFixed(2)) : 0;
+  // Correct formula: (likes + comments + saves) / reach × 100
+  // Only calculate when we have real reach data from the Insights API.
+  // Follower-based ER is misleading for viral accounts (where most views come from non-followers).
+  let engagementRate = null;
+  let saveRate = null;
+  if (hasRealReach && avgReach > 0) {
+    engagementRate = parseFloat(((avgLikes + avgComments + avgSaved) / avgReach * 100).toFixed(2));
+    saveRate = parseFloat((avgSaved / avgReach * 100).toFixed(2));
+  }
 
   return { engagementRate, avgLikes, avgComments, avgSaved, saveRate, avgImpressions, avgReach, hasRealReach };
 }

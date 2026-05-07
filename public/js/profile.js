@@ -108,13 +108,25 @@ function renderProfile(data) {
     animateCounter(document.getElementById('avgComments'), data.avgComments);
   }, 300);
 
-  // Engagement label
+  // Engagement rate — only show if real reach data is available
+  const erEl = document.getElementById('engagementRate');
+  const erUnitEl = document.getElementById('engagementRateUnit');
+  const erNoteEl = document.getElementById('erNote');
   const labelEl = document.getElementById('engagementLabel');
-  if (labelEl && data.engagementLabel) {
-    labelEl.textContent = data.engagementLabel.emoji + ' ' + data.engagementLabel.label;
-    labelEl.style.background = data.engagementLabel.color + '22';
-    labelEl.style.color = data.engagementLabel.color;
-    labelEl.style.border = `1px solid ${data.engagementLabel.color}44`;
+
+  if (data.engagementRate !== null && data.engagementRate !== undefined) {
+    animateCounter(erEl, data.engagementRate, true);
+    if (labelEl && data.engagementLabel) {
+      labelEl.textContent = data.engagementLabel.emoji + ' ' + data.engagementLabel.label;
+      labelEl.style.background = data.engagementLabel.color + '22';
+      labelEl.style.color = data.engagementLabel.color;
+      labelEl.style.border = `1px solid ${data.engagementLabel.color}44`;
+    }
+  } else {
+    if (erEl) erEl.textContent = '—';
+    if (erUnitEl) erUnitEl.style.display = 'none';
+    if (erNoteEl) erNoteEl.style.display = 'block';
+    if (labelEl) labelEl.style.display = 'none';
   }
 
   // 28-day insights
