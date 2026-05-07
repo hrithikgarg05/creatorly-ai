@@ -230,3 +230,6 @@ function getEngagementLabel(rate) {
 app.listen(PORT, () => {
   console.log(`\n🚀 Creatorly AI running at http://localhost:${PORT}\n`);
 });
+
+// Export for Vercel serverless
+module.exports = app;
