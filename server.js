@@ -102,6 +102,38 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
+// ─── Meta Required Pages ─────────────────────────────────────────────────────
+app.get('/privacy', (req, res) => {
+  res.send(`
+    <!DOCTYPE html><html><head><title>Privacy Policy - Creatorly AI</title>
+    <style>body{font-family:sans-serif;max-width:800px;margin:40px auto;line-height:1.6;}</style></head>
+    <body>
+      <h1>Privacy Policy</h1>
+      <p>Creatorly AI ("we", "our") does not permanently store your Instagram data. All metrics, insights, and media data are fetched in real-time using the official Instagram Graph API and are temporarily held in your browser session to display your dashboard.</p>
+      <p>When you disconnect your account, your session token is immediately destroyed.</p>
+      <p>If you have questions, please contact the developer.</p>
+    </body></html>
+  `);
+});
+
+app.get('/delete', (req, res) => {
+  res.send(`
+    <!DOCTYPE html><html><head><title>Data Deletion - Creatorly AI</title>
+    <style>body{font-family:sans-serif;max-width:800px;margin:40px auto;line-height:1.6;}</style></head>
+    <body>
+      <h1>User Data Deletion Instructions</h1>
+      <p>Creatorly AI does not save your data to a database. However, to revoke our application's access to your Instagram account:</p>
+      <ol>
+        <li>Open the Instagram App.</li>
+        <li>Go to <strong>Settings and privacy</strong> > <strong>Website permissions</strong> > <strong>Apps and websites</strong>.</li>
+        <li>Find <strong>Creatorly AI</strong> under the Active tab.</li>
+        <li>Tap <strong>Remove</strong>.</li>
+      </ol>
+      <p>Once removed, we will no longer have any access to your account data.</p>
+    </body></html>
+  `);
+});
+
 // ─── API: Full profile data ──────────────────────────────────────────────────
 app.get('/api/profile', async (req, res) => {
   const accessToken = req.signedCookies.ig_token;
