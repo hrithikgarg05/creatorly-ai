@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
+const cookieSession = require('cookie-session');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,11 +14,10 @@ const GRAPH_BASE = 'https://graph.instagram.com/v21.0';
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'creatorly_secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false, maxAge: 60 * 60 * 1000 } // 1 hour
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'creatorly_secret'],
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 
 // ─── Helper: fetch with error handling ──────────────────────────────────────
