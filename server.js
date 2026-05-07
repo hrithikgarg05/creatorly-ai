@@ -118,28 +118,37 @@ app.get('/api/profile', async (req, res) => {
     const igUserId = profile.id;
 
     // 2. Fetch last 30 posts (industry standard for brand audits)
-    // Includes video_views for Reels. Sorted by most recent first (API default).
+    // Note: video_views is NOT available as a direct field in new IG Business Login API.
+    // Views (plays) must be fetched via the insights endpoint per-post.
     const mediaData = await graphFetch(
-      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,video_views,timestamp&limit=30&access_token=${accessToken}`
+      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp&limit=30&access_token=${accessToken}`
     );
     const posts = mediaData.data || [];
 
-    // 3. Fetch per-post insights (reach, saved, impressions) — safe, won't crash if unavailable
+    // 3. Fetch per-post insights — separate calls for videos vs images
+    // 'plays' metric is only valid for VIDEO/REELS; requesting it on images causes API error
     const postsWithInsights = await Promise.all(
       posts.map(async (post) => {
+        const isVideo = post.media_type === 'VIDEO' || post.media_product_type === 'REELS';
+        const metrics = isVideo
+          ? 'reach,saved,impressions,plays'
+          : 'reach,saved,impressions';
+
         const insightData = await graphFetchSafe(
-          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
+          `${GRAPH_BASE}/${post.id}/insights?metric=${metrics}&access_token=${accessToken}`
         );
         const insightMap = {};
         if (insightData && insightData.data) {
-          insightData.data.forEach(m => { insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0; });
+          insightData.data.forEach(m => {
+            insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+          });
         }
         return {
           ...post,
           reach: insightMap.reach || 0,
           saved: insightMap.saved || 0,
           impressions: insightMap.impressions || 0,
-          views: post.video_views || 0  // direct field from media object
+          views: insightMap.plays || 0  // 'plays' = Reel view count
         };
       })
     );
