@@ -91,6 +91,25 @@ app.get('/auth/callback', async (req, res) => {
     });
     const accessToken = tokenData.access_token;
 
+    // Store ONLY the access token in the session cookie (max 4KB limit)
+    req.session.accessToken = accessToken;
+    res.redirect('/profile');
+
+  } catch (err) {
+    console.error('OAuth callback error:', err.message);
+    res.redirect('/?error=api_error&msg=' + encodeURIComponent(err.message));
+  }
+});
+
+// API: return profile data for current session
+app.get('/api/profile', async (req, res) => {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ error: 'No active session' });
+  }
+
+  try {
+    const accessToken = req.session.accessToken;
+
     // 2. Fetch Instagram profile
     const profileFields = 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url';
     const profile = await graphFetch(
@@ -144,21 +163,11 @@ app.get('/auth/callback', async (req, res) => {
       fetchedAt: new Date().toISOString()
     };
 
-    req.session.profile = profileData;
-    res.redirect('/profile');
-
+    res.json(profileData);
   } catch (err) {
-    console.error('OAuth callback error:', err.message);
-    res.redirect('/?error=api_error&msg=' + encodeURIComponent(err.message));
+    console.error('API Profile Error:', err.message);
+    res.status(500).json({ error: err.message });
   }
-});
-
-// API: return profile data for current session
-app.get('/api/profile', (req, res) => {
-  if (!req.session.profile) {
-    return res.status(401).json({ error: 'No active session' });
-  }
-  res.json(req.session.profile);
 });
 
 // Logout
