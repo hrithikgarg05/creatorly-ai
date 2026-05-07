@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const cookieSession = require('cookie-session');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,18 +10,12 @@ const APP_ID = process.env.APP_ID;
 const APP_SECRET = process.env.APP_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 const GRAPH_BASE = 'https://graph.instagram.com/v21.0';
+const COOKIE_SECRET = process.env.SESSION_SECRET || 'creatorly_secret_2024';
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(cookieSession({
-  name: 'creatorly_sess',
-  keys: [process.env.SESSION_SECRET || 'creatorly_secret_2024'],
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  secure: true,
-  sameSite: 'lax',
-  httpOnly: true
-}));
+app.use(cookieParser(COOKIE_SECRET));
 
 // ─── Helper: fetch with error handling ──────────────────────────────────────
 async function graphFetch(url, options = {}) {
@@ -45,7 +39,7 @@ app.get('/', (req, res) => {
 
 // Profile page
 app.get('/profile', (req, res) => {
-  if (!req.session.profile) {
+  if (!req.signedCookies.ig_token) {
     return res.redirect('/?error=session_expired');
   }
   const html = fs.readFileSync(path.join(__dirname, 'public', 'profile.html'), 'utf8');
@@ -94,12 +88,18 @@ app.get('/auth/callback', async (req, res) => {
     });
     const accessToken = tokenData.access_token;
 
-    // Store ONLY the access token in the session cookie
-    req.session.accessToken = accessToken;
-    // Use JS redirect instead of 302 to prevent Vercel CDN from stripping Set-Cookie
-    res.send(`<!DOCTYPE html><html><head><title>Redirecting...</title></head><body>
+    // Set a signed httpOnly cookie with the access token
+    res.cookie('ig_token', accessToken, {
+      signed: true,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+    // JS-based redirect to ensure browser stores cookie before navigating
+    res.send(`<!DOCTYPE html><html><head><title>Connecting...</title></head><body>
       <script>window.location.href = '/profile';</script>
-      <p>Redirecting to your dashboard...</p>
+      <p>Connecting to your dashboard...</p>
     </body></html>`);
 
   } catch (err) {
@@ -110,13 +110,12 @@ app.get('/auth/callback', async (req, res) => {
 
 // API: return profile data for current session
 app.get('/api/profile', async (req, res) => {
-  if (!req.session.accessToken) {
+  const accessToken = req.signedCookies.ig_token;
+  if (!accessToken) {
     return res.status(401).json({ error: 'No active session' });
   }
 
   try {
-    const accessToken = req.session.accessToken;
-
     // 2. Fetch Instagram profile
     const profileFields = 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url';
     const profile = await graphFetch(
@@ -179,7 +178,7 @@ app.get('/api/profile', async (req, res) => {
 
 // Logout
 app.get('/logout', (req, res) => {
-  req.session.destroy();
+  res.clearCookie('ig_token');
   res.redirect('/');
 });
 
