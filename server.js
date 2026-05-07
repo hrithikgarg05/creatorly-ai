@@ -297,27 +297,60 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-// Debug: see raw API responses (only usable by logged-in user)
+// Debug: diagnose raw API responses (only accessible when logged in)
 app.get('/api/debug', async (req, res) => {
   const accessToken = req.signedCookies.ig_token;
   if (!accessToken) return res.status(401).json({ error: 'Not logged in' });
   try {
     const profile = await graphFetch(`${GRAPH_BASE}/me?fields=id,username&access_token=${accessToken}`);
-    const media = await graphFetch(`${GRAPH_BASE}/me/media?fields=id,media_type&limit=3&access_token=${accessToken}`);
-    const firstPostId = media.data?.[0]?.id;
-    const postInsights = firstPostId ? await graphFetchSafe(
-      `${GRAPH_BASE}/${firstPostId}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
-    ) : null;
+    const media = await graphFetch(`${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type&limit=5&access_token=${accessToken}`);
+
+    // Find first Reel specifically
+    const firstReel = media.data?.find(p => p.media_type === 'VIDEO' || p.media_product_type === 'REELS');
+    const firstImage = media.data?.find(p => p.media_type === 'IMAGE');
+    const testId = firstReel?.id || media.data?.[0]?.id;
+
+    // Try every possible metric name for views
+    const metricsToTry = [
+      'plays',
+      'ig_reels_video_view_total_time',
+      'clips_replays_count',
+      'video_views',
+      'reach',
+      'reach,saved,impressions,plays',
+      'reach,saved,impressions'
+    ];
+    const metricResults = {};
+    for (const metric of metricsToTry) {
+      const { default: fetch } = await import('node-fetch');
+      const url = `${GRAPH_BASE}/${testId}/insights?metric=${metric}&access_token=${accessToken}`;
+      const r = await fetch(url);
+      metricResults[metric] = await r.json(); // raw, including errors
+    }
+
+    // Account-level insights
     const now = Math.floor(Date.now() / 1000);
     const since28 = now - (28 * 24 * 60 * 60);
-    const acctInsights = await graphFetchSafe(
+    const { default: fetch2 } = await import('node-fetch');
+    const acctRaw = await fetch2(
       `${GRAPH_BASE}/me/insights?metric=reach,impressions,profile_views&period=day&since=${since28}&until=${now}&access_token=${accessToken}`
     );
-    res.json({ profile, firstPostId, postInsights, acctInsights });
+    const acctInsights = await acctRaw.json();
+
+    res.json({
+      profile,
+      mediaList: media.data,
+      firstReelTested: firstReel,
+      testPostId: testId,
+      metricResults,
+      acctInsights,
+      instruction: 'Check metricResults — null or error means that metric is unavailable. Non-null = works.'
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message, stack: e.stack });
   }
 });
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
