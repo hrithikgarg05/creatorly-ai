@@ -117,9 +117,10 @@ app.get('/api/profile', async (req, res) => {
     );
     const igUserId = profile.id;
 
-    // 2. Fetch last 12 posts
+    // 2. Fetch last 30 posts (industry standard for brand audits)
+    // Includes video_views for Reels. Sorted by most recent first (API default).
     const mediaData = await graphFetch(
-      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp&limit=12&access_token=${accessToken}`
+      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,video_views,timestamp&limit=30&access_token=${accessToken}`
     );
     const posts = mediaData.data || [];
 
@@ -133,7 +134,13 @@ app.get('/api/profile', async (req, res) => {
         if (insightData && insightData.data) {
           insightData.data.forEach(m => { insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0; });
         }
-        return { ...post, reach: insightMap.reach || 0, saved: insightMap.saved || 0, impressions: insightMap.impressions || 0 };
+        return {
+          ...post,
+          reach: insightMap.reach || 0,
+          saved: insightMap.saved || 0,
+          impressions: insightMap.impressions || 0,
+          views: post.video_views || 0  // direct field from media object
+        };
       })
     );
 
@@ -172,26 +179,35 @@ app.get('/api/profile', async (req, res) => {
     // 8. Calculate smart rate card
     const rateCard = calculateSmartRateCard(profile.followers_count, metrics.engagementRate, niche, tier);
 
-    // 9. Recent Reels
-    const recentReels = postsWithInsights
-      .filter(p => p.media_type === 'VIDEO' || p.media_product_type === 'REELS')
-      .slice(0, 3)
-      .map(r => ({
-        id: r.id,
-        url: r.permalink,
-        thumbnail: r.thumbnail_url || r.media_url,
-        likes: r.like_count || 0,
-        comments: r.comments_count || 0,
-        saved: r.saved || 0,
-        reach: r.reach || 0,
-        impressions: r.impressions || 0
-      }));
+    // 9. Last 12 Reels (what brands specifically look at)
+    const allReels = postsWithInsights.filter(
+      p => p.media_type === 'VIDEO' || p.media_product_type === 'REELS'
+    );
+    const recentReels = allReels.slice(0, 12).map(r => ({
+      id: r.id,
+      url: r.permalink,
+      thumbnail: r.thumbnail_url || r.media_url,
+      likes: r.like_count || 0,
+      comments: r.comments_count || 0,
+      saved: r.saved || 0,
+      views: r.views || r.video_views || 0,
+      reach: r.reach || 0,
+      impressions: r.impressions || 0,
+      timestamp: r.timestamp
+    }));
 
-    // 10. Best performing post
-    const bestPost = [...postsWithInsights].sort((a, b) =>
-      ((b.like_count || 0) + (b.comments_count || 0) + (b.saved || 0)) -
-      ((a.like_count || 0) + (a.comments_count || 0) + (a.saved || 0))
-    )[0] || null;
+    // Avg views across Reels (what brands care about most)
+    const reelsWithViews = recentReels.filter(r => r.views > 0);
+    const avgReelViews = reelsWithViews.length > 0
+      ? Math.round(reelsWithViews.reduce((s, r) => s + r.views, 0) / reelsWithViews.length)
+      : null;
+
+    // 10. Best performing post (by views for video, by likes+comments+saves for images)
+    const bestPost = [...postsWithInsights].sort((a, b) => {
+      const scoreA = (a.views || 0) + (a.like_count || 0) * 10 + (a.comments_count || 0) * 20 + (a.saved || 0) * 30;
+      const scoreB = (b.views || 0) + (b.like_count || 0) * 10 + (b.comments_count || 0) * 20 + (b.saved || 0) * 30;
+      return scoreB - scoreA;
+    })[0] || null;
 
     const profileData = {
       username: profile.username,
@@ -212,6 +228,10 @@ app.get('/api/profile', async (req, res) => {
       saveRate: metrics.saveRate,
       avgReach: metrics.avgReach,
       avgImpressions: metrics.avgImpressions,
+      hasRealReach: metrics.hasRealReach,
+
+      // Views (Reels)
+      avgReelViews,  // avg views across last 12 Reels — key metric for brands
 
       // 28-day real data
       reach28: totalReach28,
@@ -223,20 +243,36 @@ app.get('/api/profile', async (req, res) => {
       niche,
 
       // Content
-      postsAnalyzed: posts.length,
-      recentReels,
+      postsAnalyzed: postsWithInsights.length,  // how many posts were fetched (30)
+      reelsAnalyzed: allReels.length,            // how many reels in those 30 posts
+      recentReels,                               // last 12 reels with full data
       bestPost: bestPost ? {
         url: bestPost.permalink,
         thumbnail: bestPost.thumbnail_url || bestPost.media_url,
         likes: bestPost.like_count || 0,
         comments: bestPost.comments_count || 0,
         saved: bestPost.saved || 0,
+        views: bestPost.views || bestPost.video_views || 0,
         reach: bestPost.reach || 0,
         type: bestPost.media_product_type || bestPost.media_type
       } : null,
 
       rateCard,
-      fetchedAt: new Date().toISOString()
+      fetchedAt: new Date().toISOString(),
+
+      // Raw per-post data for validation
+      _raw: postsWithInsights.map(p => ({
+        id: p.id,
+        type: p.media_product_type || p.media_type,
+        timestamp: p.timestamp,
+        likes: p.like_count || 0,
+        comments: p.comments_count || 0,
+        views: p.views || p.video_views || 0,
+        saved: p.saved || 0,
+        reach: p.reach || 0,
+        impressions: p.impressions || 0,
+        url: p.permalink
+      }))
     };
 
     res.json(profileData);
