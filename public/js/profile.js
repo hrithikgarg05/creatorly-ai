@@ -18,14 +18,22 @@ function formatINR(n) {
 }
 
 function animateCounter(el, target, isDecimal = false) {
-  if (!el || target === undefined || target === null) return;
-  const start = 0;
+  if (!el) return;
+  if (target === null || target === undefined) {
+    el.textContent = 'N/A';
+    el.style.color = 'var(--text-dim)';
+    return;
+  }
+  if (target === 0 && !isDecimal) {
+    el.textContent = '0';
+    return;
+  }
   const duration = 1200;
   const startTime = performance.now();
   const update = (now) => {
     const progress = Math.min((now - startTime) / duration, 1);
     const ease = 1 - Math.pow(1 - progress, 3);
-    const current = start + (target - start) * ease;
+    const current = (target) * ease;
     el.textContent = isDecimal ? current.toFixed(2) : formatNumber(Math.round(current));
     if (progress < 1) requestAnimationFrame(update);
   };

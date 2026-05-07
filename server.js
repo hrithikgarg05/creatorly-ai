@@ -137,15 +137,21 @@ app.get('/api/profile', async (req, res) => {
       })
     );
 
-    // 4. Fetch 28-day account-level insights
+    // 4. Fetch 28-day account-level insights (try two endpoint formats)
     const now = Math.floor(Date.now() / 1000);
-    const since = now - (28 * 24 * 60 * 60);
-    const accountInsights = await graphFetchSafe(
-      `${GRAPH_BASE}/${igUserId}/insights?metric=reach,impressions,profile_views&period=day&since=${since}&until=${now}&access_token=${accessToken}`
+    const since28 = now - (28 * 24 * 60 * 60);
+    // Try /me/insights first (new Business Login API), fallback to /{id}/insights
+    let accountInsights = await graphFetchSafe(
+      `${GRAPH_BASE}/me/insights?metric=reach,impressions,profile_views&period=day&since=${since28}&until=${now}&access_token=${accessToken}`
     );
+    if (!accountInsights || !accountInsights.data || accountInsights.data.length === 0) {
+      accountInsights = await graphFetchSafe(
+        `${GRAPH_BASE}/${igUserId}/insights?metric=reach,impressions,profile_views&period=day&since=${since28}&until=${now}&access_token=${accessToken}`
+      );
+    }
 
-    let totalReach28 = 0, totalImpressions28 = 0, totalProfileViews28 = 0;
-    if (accountInsights && accountInsights.data) {
+    let totalReach28 = null, totalImpressions28 = null, totalProfileViews28 = null;
+    if (accountInsights && accountInsights.data && accountInsights.data.length > 0) {
       accountInsights.data.forEach(metric => {
         const total = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
         if (metric.name === 'reach') totalReach28 = total;
@@ -249,29 +255,37 @@ app.get('/logout', (req, res) => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function calculateMetrics(posts, followers) {
-  if (!posts.length) return { engagementRate: 0, avgLikes: 0, avgComments: 0, avgSaved: 0, saveRate: 0, avgImpressions: 0, avgReach: 0 };
+  if (!posts.length) return { engagementRate: 0, avgLikes: 0, avgComments: 0, avgSaved: 0, saveRate: 0, avgImpressions: 0, avgReach: 0, hasRealReach: false };
   const n = posts.length;
   const avgLikes = Math.round(posts.reduce((s, p) => s + (p.like_count || 0), 0) / n);
   const avgComments = Math.round(posts.reduce((s, p) => s + (p.comments_count || 0), 0) / n);
   const avgSaved = Math.round(posts.reduce((s, p) => s + (p.saved || 0), 0) / n);
 
-  // Use real reach if available, otherwise estimate
+  // Use real reach if the API returned it, else fall back to followers-based estimate
   const realReachData = posts.filter(p => p.reach > 0);
-  const avgReach = realReachData.length > 0
+  const hasRealReach = realReachData.length > 0;
+  const avgReach = hasRealReach
     ? Math.round(realReachData.reduce((s, p) => s + p.reach, 0) / realReachData.length)
-    : Math.round((avgLikes / (followers || 1)) * followers * 0.3);
+    : null; // null means "not available"
 
   const realImpressionsData = posts.filter(p => p.impressions > 0);
   const avgImpressions = realImpressionsData.length > 0
     ? Math.round(realImpressionsData.reduce((s, p) => s + p.impressions, 0) / realImpressionsData.length)
-    : Math.round(avgReach * 1.3);
+    : null;
 
-  // Engagement rate using saves+comments+likes vs reach (brand-preferred formula)
-  const engBase = avgReach > 0 ? avgReach : (followers || 1);
-  const engagementRate = parseFloat(((avgLikes + avgComments + avgSaved) / engBase * 100).toFixed(2));
-  const saveRate = avgReach > 0 ? parseFloat((avgSaved / avgReach * 100).toFixed(2)) : 0;
+  // ── ENGAGEMENT RATE ──
+  // Industry standard formula: (likes + comments) / followers * 100
+  // We add saves too since the API provides it, but use FOLLOWERS as denominator
+  // (not reach) unless real reach data is available
+  const followerBase = followers || 1;
+  const totalEngagement = avgLikes + avgComments + avgSaved;
+  const engagementRate = parseFloat((totalEngagement / followerBase * 100).toFixed(2));
 
-  return { engagementRate, avgLikes, avgComments, avgSaved, saveRate, avgImpressions, avgReach };
+  // Save rate = saves / followers (or saves / avg reach if available)
+  const saveBase = (hasRealReach && avgReach > 0) ? avgReach : followerBase;
+  const saveRate = avgSaved > 0 ? parseFloat((avgSaved / saveBase * 100).toFixed(2)) : 0;
+
+  return { engagementRate, avgLikes, avgComments, avgSaved, saveRate, avgImpressions, avgReach, hasRealReach };
 }
 
 function detectNiche(bio) {
