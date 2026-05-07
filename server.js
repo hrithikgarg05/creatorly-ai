@@ -157,17 +157,13 @@ app.get('/api/profile', async (req, res) => {
     );
     const posts = mediaData.data || [];
 
-    // 3. Fetch per-post insights — separate calls for videos vs images
-    // 'plays' metric is only valid for VIDEO/REELS; requesting it on images causes API error
+    // 3. Fetch per-post insights robustly
+    // We separate base metrics from view metrics so one failing metric doesn't kill the whole response.
     const postsWithInsights = await Promise.all(
       posts.map(async (post) => {
-        const isVideo = post.media_type === 'VIDEO' || post.media_product_type === 'REELS';
-        const metrics = isVideo
-          ? 'reach,saved,impressions,plays'
-          : 'reach,saved,impressions';
-
+        // Base metrics (valid for almost all posts)
         const insightData = await graphFetchSafe(
-          `${GRAPH_BASE}/${post.id}/insights?metric=${metrics}&access_token=${accessToken}`
+          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
         );
         const insightMap = {};
         if (insightData && insightData.data) {
@@ -175,12 +171,28 @@ app.get('/api/profile', async (req, res) => {
             insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
           });
         }
+
+        // View metrics (only for video/reels, varies by exact product type and API version)
+        let views = 0;
+        if (post.media_type === 'VIDEO' || post.media_product_type === 'REELS') {
+          const viewMetricsToTry = ['plays', 'video_views'];
+          for (const vm of viewMetricsToTry) {
+            const vData = await graphFetchSafe(
+              `${GRAPH_BASE}/${post.id}/insights?metric=${vm}&access_token=${accessToken}`
+            );
+            if (vData && vData.data && vData.data.length > 0) {
+              views = vData.data[0].values?.[0]?.value ?? 0;
+              break; // Found the correct metric for this post!
+            }
+          }
+        }
+
         return {
           ...post,
           reach: insightMap.reach || 0,
           saved: insightMap.saved || 0,
           impressions: insightMap.impressions || 0,
-          views: insightMap.plays || 0  // 'plays' = Reel view count
+          views: views
         };
       })
     );
