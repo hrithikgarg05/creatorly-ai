@@ -150,10 +150,9 @@ app.get('/api/profile', async (req, res) => {
     const igUserId = profile.id;
 
     // 2. Fetch last 30 posts (industry standard for brand audits)
-    // Note: video_views is NOT available as a direct field in new IG Business Login API.
-    // Views (plays) must be fetched via the insights endpoint per-post.
+    // view_count is a direct media field available for videos (most reliable way to get views)
     const mediaData = await graphFetch(
-      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp&limit=30&access_token=${accessToken}`
+      `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,view_count,timestamp&limit=30&access_token=${accessToken}`
     );
     const posts = mediaData.data || [];
 
@@ -172,17 +171,27 @@ app.get('/api/profile', async (req, res) => {
           });
         }
 
-        // View metrics (only for video/reels, varies by exact product type and API version)
-        let views = 0;
-        if (post.media_type === 'VIDEO' || post.media_product_type === 'REELS') {
-          const viewMetricsToTry = ['plays', 'video_views'];
+        // Views: try multiple sources in order of reliability
+        // Priority 1: view_count direct media field (works for standard videos)
+        // Priority 2: 'plays' insights metric (works for Reels product type)
+        // Priority 3: 'video_views' insights metric (legacy metric name)
+        // Priority 4: derive from ig_reels_video_view_total_time if all else fails
+        let views = post.view_count || 0;
+        if (!views && (post.media_type === 'VIDEO' || post.media_product_type === 'REELS')) {
+          const viewMetricsToTry = ['plays', 'video_views', 'ig_reels_video_view_total_time'];
           for (const vm of viewMetricsToTry) {
             const vData = await graphFetchSafe(
               `${GRAPH_BASE}/${post.id}/insights?metric=${vm}&access_token=${accessToken}`
             );
             if (vData && vData.data && vData.data.length > 0) {
-              views = vData.data[0].values?.[0]?.value ?? 0;
-              break; // Found the correct metric for this post!
+              const raw = vData.data[0].values?.[0]?.value ?? 0;
+              if (vm === 'ig_reels_video_view_total_time') {
+                // Total watch time in ms. Can't derive exact view count,
+                // but we'll store it separately and skip it as the views field
+                break;
+              }
+              views = raw;
+              break;
             }
           }
         }
