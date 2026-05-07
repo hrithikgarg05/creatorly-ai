@@ -15,9 +15,12 @@ const GRAPH_BASE = 'https://graph.instagram.com/v21.0';
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieSession({
-  name: 'session',
-  keys: [process.env.SESSION_SECRET || 'creatorly_secret'],
-  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  name: 'creatorly_sess',
+  keys: [process.env.SESSION_SECRET || 'creatorly_secret_2024'],
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  secure: true,
+  sameSite: 'lax',
+  httpOnly: true
 }));
 
 // ─── Helper: fetch with error handling ──────────────────────────────────────
@@ -91,9 +94,13 @@ app.get('/auth/callback', async (req, res) => {
     });
     const accessToken = tokenData.access_token;
 
-    // Store ONLY the access token in the session cookie (max 4KB limit)
+    // Store ONLY the access token in the session cookie
     req.session.accessToken = accessToken;
-    res.redirect('/profile');
+    // Use JS redirect instead of 302 to prevent Vercel CDN from stripping Set-Cookie
+    res.send(`<!DOCTYPE html><html><head><title>Redirecting...</title></head><body>
+      <script>window.location.href = '/profile';</script>
+      <p>Redirecting to your dashboard...</p>
+    </body></html>`);
 
   } catch (err) {
     console.error('OAuth callback error:', err.message);
