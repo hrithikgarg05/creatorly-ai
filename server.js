@@ -172,26 +172,38 @@ app.get('/api/profile', async (req, res) => {
         }
 
         // Views: try multiple sources in order of reliability
-        // Priority 1: view_count direct media field (works for standard videos)
-        // Priority 2: 'plays' insights metric (works for Reels product type)
-        // Priority 3: 'video_views' insights metric (legacy metric name)
-        // Priority 4: derive from ig_reels_video_view_total_time if all else fails
+        // The new Instagram Business Login API does not expose view_count directly.
+        // We estimate it from watch time metrics: views ≈ total_time / avg_watch_time
         let views = post.view_count || 0;
         if (!views && (post.media_type === 'VIDEO' || post.media_product_type === 'REELS')) {
-          const viewMetricsToTry = ['plays', 'video_views', 'ig_reels_video_view_total_time'];
-          for (const vm of viewMetricsToTry) {
+          // First try direct metric names
+          const directMetrics = ['plays', 'video_views'];
+          for (const vm of directMetrics) {
             const vData = await graphFetchSafe(
               `${GRAPH_BASE}/${post.id}/insights?metric=${vm}&access_token=${accessToken}`
             );
             if (vData && vData.data && vData.data.length > 0) {
-              const raw = vData.data[0].values?.[0]?.value ?? 0;
-              if (vm === 'ig_reels_video_view_total_time') {
-                // Total watch time in ms. Can't derive exact view count,
-                // but we'll store it separately and skip it as the views field
-                break;
+              views = vData.data[0].values?.[0]?.value ?? 0;
+              if (views > 0) break;
+            }
+          }
+
+          // If still no views, estimate from watch time (confirmed to work for Reels)
+          if (!views) {
+            const watchData = await graphFetchSafe(
+              `${GRAPH_BASE}/${post.id}/insights?metric=ig_reels_video_view_total_time,ig_reels_avg_watch_time&access_token=${accessToken}`
+            );
+            if (watchData && watchData.data) {
+              const wMap = {};
+              watchData.data.forEach(m => { wMap[m.name] = m.values?.[0]?.value ?? 0; });
+              const totalTime = wMap['ig_reels_video_view_total_time'] || 0;
+              const avgTime = wMap['ig_reels_avg_watch_time'] || 0;
+              if (totalTime > 0 && avgTime > 0) {
+                views = Math.round(totalTime / avgTime); // estimated view count
+              } else if (totalTime > 0) {
+                // Fallback: assume avg Reel watch time of 5 seconds
+                views = Math.round(totalTime / 5000);
               }
-              views = raw;
-              break;
             }
           }
         }
