@@ -29,15 +29,18 @@ async function graphFetch(url, options = {}) {
   return data;
 }
 
+// Safe graphFetch that returns null on error (for optional endpoints)
+async function graphFetchSafe(url, options = {}) {
+  try { return await graphFetch(url, options); } catch { return null; }
+}
+
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
-// Landing page
 app.get('/', (req, res) => {
   const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
   res.send(html);
 });
 
-// Profile page
 app.get('/profile', (req, res) => {
   if (!req.signedCookies.ig_token) {
     return res.redirect('/?error=session_expired');
@@ -46,7 +49,7 @@ app.get('/profile', (req, res) => {
   res.send(html);
 });
 
-// Start OAuth (NEW INSTAGRAM API)
+// Start OAuth
 app.get('/auth/instagram', (req, res) => {
   const scopes = [
     'instagram_business_basic',
@@ -54,7 +57,7 @@ app.get('/auth/instagram', (req, res) => {
   ].join(',');
 
   const authUrl = `https://www.instagram.com/oauth/authorize?` +
-    `enable_fb_login=0` + 
+    `enable_fb_login=0` +
     `&force_authentication=1` +
     `&client_id=${APP_ID}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
@@ -67,13 +70,10 @@ app.get('/auth/instagram', (req, res) => {
 // OAuth callback
 app.get('/auth/callback', async (req, res) => {
   const { code, error, error_description } = req.query;
-
   if (error || !code) {
     return res.redirect('/?error=oauth_denied&msg=' + encodeURIComponent(error_description || error));
   }
-
   try {
-    // 1. Exchange code for access token using POST form data
     const tokenUrl = 'https://api.instagram.com/oauth/access_token';
     const params = new URLSearchParams();
     params.append('client_id', APP_ID);
@@ -82,33 +82,27 @@ app.get('/auth/callback', async (req, res) => {
     params.append('redirect_uri', REDIRECT_URI);
     params.append('code', code);
 
-    const tokenData = await graphFetch(tokenUrl, {
-      method: 'POST',
-      body: params
-    });
+    const tokenData = await graphFetch(tokenUrl, { method: 'POST', body: params });
     const accessToken = tokenData.access_token;
 
-    // Set a signed httpOnly cookie with the access token
     res.cookie('ig_token', accessToken, {
       signed: true,
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 24 * 60 * 60 * 1000
     });
-    // JS-based redirect to ensure browser stores cookie before navigating
     res.send(`<!DOCTYPE html><html><head><title>Connecting...</title></head><body>
       <script>window.location.href = '/profile';</script>
       <p>Connecting to your dashboard...</p>
     </body></html>`);
-
   } catch (err) {
     console.error('OAuth callback error:', err.message);
     res.redirect('/?error=api_error&msg=' + encodeURIComponent(err.message));
   }
 });
 
-// API: return profile data for current session
+// ─── API: Full profile data ──────────────────────────────────────────────────
 app.get('/api/profile', async (req, res) => {
   const accessToken = req.signedCookies.ig_token;
   if (!accessToken) {
@@ -116,21 +110,64 @@ app.get('/api/profile', async (req, res) => {
   }
 
   try {
-    // 2. Fetch Instagram profile
-    const profileFields = 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url';
+    // 1. Fetch profile
+    const profileFields = 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website';
     const profile = await graphFetch(
       `${GRAPH_BASE}/me?fields=${profileFields}&access_token=${accessToken}`
     );
+    const igUserId = profile.id;
 
-    // 3. Fetch last 12 media posts with extra fields for Reels
+    // 2. Fetch last 12 posts
     const mediaData = await graphFetch(
       `${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp&limit=12&access_token=${accessToken}`
     );
-
     const posts = mediaData.data || [];
 
-    // Extract recent 3 Reels
-    const recentReels = posts
+    // 3. Fetch per-post insights (reach, saved, impressions) — safe, won't crash if unavailable
+    const postsWithInsights = await Promise.all(
+      posts.map(async (post) => {
+        const insightData = await graphFetchSafe(
+          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
+        );
+        const insightMap = {};
+        if (insightData && insightData.data) {
+          insightData.data.forEach(m => { insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0; });
+        }
+        return { ...post, reach: insightMap.reach || 0, saved: insightMap.saved || 0, impressions: insightMap.impressions || 0 };
+      })
+    );
+
+    // 4. Fetch 28-day account-level insights
+    const now = Math.floor(Date.now() / 1000);
+    const since = now - (28 * 24 * 60 * 60);
+    const accountInsights = await graphFetchSafe(
+      `${GRAPH_BASE}/${igUserId}/insights?metric=reach,impressions,profile_views&period=day&since=${since}&until=${now}&access_token=${accessToken}`
+    );
+
+    let totalReach28 = 0, totalImpressions28 = 0, totalProfileViews28 = 0;
+    if (accountInsights && accountInsights.data) {
+      accountInsights.data.forEach(metric => {
+        const total = (metric.values || []).reduce((s, v) => s + (v.value || 0), 0);
+        if (metric.name === 'reach') totalReach28 = total;
+        if (metric.name === 'impressions') totalImpressions28 = total;
+        if (metric.name === 'profile_views') totalProfileViews28 = total;
+      });
+    }
+
+    // 5. Calculate metrics
+    const metrics = calculateMetrics(postsWithInsights, profile.followers_count);
+
+    // 6. Detect niche from bio
+    const niche = detectNiche(profile.biography || '');
+
+    // 7. Detect creator tier
+    const tier = detectTier(profile.followers_count);
+
+    // 8. Calculate smart rate card
+    const rateCard = calculateSmartRateCard(profile.followers_count, metrics.engagementRate, niche, tier);
+
+    // 9. Recent Reels
+    const recentReels = postsWithInsights
       .filter(p => p.media_type === 'VIDEO' || p.media_product_type === 'REELS')
       .slice(0, 3)
       .map(r => ({
@@ -139,32 +176,59 @@ app.get('/api/profile', async (req, res) => {
         thumbnail: r.thumbnail_url || r.media_url,
         likes: r.like_count || 0,
         comments: r.comments_count || 0,
-        timestamp: r.timestamp
+        saved: r.saved || 0,
+        reach: r.reach || 0,
+        impressions: r.impressions || 0
       }));
 
-    // 4. Calculate metrics
-    const metrics = calculateMetrics(posts, profile.followers_count);
+    // 10. Best performing post
+    const bestPost = [...postsWithInsights].sort((a, b) =>
+      ((b.like_count || 0) + (b.comments_count || 0) + (b.saved || 0)) -
+      ((a.like_count || 0) + (a.comments_count || 0) + (a.saved || 0))
+    )[0] || null;
 
-    // 5. Calculate rate card
-    const rateCard = calculateRateCard(metrics.avgImpressions, metrics.engagementRate);
-
-    // 6. Build final profile object
     const profileData = {
       username: profile.username,
       name: profile.name || profile.username,
       biography: profile.biography || '',
+      website: profile.website || '',
       followers: profile.followers_count,
       following: profile.follows_count,
       totalPosts: profile.media_count,
       profilePicture: profile.profile_picture_url,
+
+      // Engagement
       engagementRate: metrics.engagementRate,
       engagementLabel: getEngagementLabel(metrics.engagementRate),
       avgLikes: metrics.avgLikes,
       avgComments: metrics.avgComments,
-      avgImpressions: metrics.avgImpressions,
+      avgSaved: metrics.avgSaved,
+      saveRate: metrics.saveRate,
       avgReach: metrics.avgReach,
+      avgImpressions: metrics.avgImpressions,
+
+      // 28-day real data
+      reach28: totalReach28,
+      impressions28: totalImpressions28,
+      profileViews28: totalProfileViews28,
+
+      // Tier & niche
+      tier,
+      niche,
+
+      // Content
       postsAnalyzed: posts.length,
       recentReels,
+      bestPost: bestPost ? {
+        url: bestPost.permalink,
+        thumbnail: bestPost.thumbnail_url || bestPost.media_url,
+        likes: bestPost.like_count || 0,
+        comments: bestPost.comments_count || 0,
+        saved: bestPost.saved || 0,
+        reach: bestPost.reach || 0,
+        type: bestPost.media_product_type || bestPost.media_type
+      } : null,
+
       rateCard,
       fetchedAt: new Date().toISOString()
     };
@@ -182,63 +246,89 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-// ─── Calculation helpers ─────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function calculateMetrics(posts, followers) {
-  if (!posts.length) {
-    return {
-      engagementRate: 0,
-      avgLikes: 0,
-      avgComments: 0,
-      avgImpressions: 0,
-      avgReach: 0
-    };
-  }
-
-  const totalLikes = posts.reduce((sum, p) => sum + (p.like_count || 0), 0);
-  const totalComments = posts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+  if (!posts.length) return { engagementRate: 0, avgLikes: 0, avgComments: 0, avgSaved: 0, saveRate: 0, avgImpressions: 0, avgReach: 0 };
   const n = posts.length;
+  const avgLikes = Math.round(posts.reduce((s, p) => s + (p.like_count || 0), 0) / n);
+  const avgComments = Math.round(posts.reduce((s, p) => s + (p.comments_count || 0), 0) / n);
+  const avgSaved = Math.round(posts.reduce((s, p) => s + (p.saved || 0), 0) / n);
 
-  const avgLikes = Math.round(totalLikes / n);
-  const avgComments = Math.round(totalComments / n);
-  
-  // Estimate impressions and reach if not directly provided (new API usually requires separate /insights calls)
-  // For the sake of the rate card demo, we estimate: 
-  // Impressions ≈ Likes * 10
-  // Reach ≈ Impressions * 0.8
-  const avgImpressions = Math.round(avgLikes * 10.5);
-  const avgReach = Math.round(avgImpressions * 0.8);
+  // Use real reach if available, otherwise estimate
+  const realReachData = posts.filter(p => p.reach > 0);
+  const avgReach = realReachData.length > 0
+    ? Math.round(realReachData.reduce((s, p) => s + p.reach, 0) / realReachData.length)
+    : Math.round((avgLikes / (followers || 1)) * followers * 0.3);
 
-  const engagementRate = followers > 0
-    ? parseFloat(((avgLikes + avgComments) / followers * 100).toFixed(2))
-    : 0;
+  const realImpressionsData = posts.filter(p => p.impressions > 0);
+  const avgImpressions = realImpressionsData.length > 0
+    ? Math.round(realImpressionsData.reduce((s, p) => s + p.impressions, 0) / realImpressionsData.length)
+    : Math.round(avgReach * 1.3);
 
-  return { engagementRate, avgLikes, avgComments, avgImpressions, avgReach };
+  // Engagement rate using saves+comments+likes vs reach (brand-preferred formula)
+  const engBase = avgReach > 0 ? avgReach : (followers || 1);
+  const engagementRate = parseFloat(((avgLikes + avgComments + avgSaved) / engBase * 100).toFixed(2));
+  const saveRate = avgReach > 0 ? parseFloat((avgSaved / avgReach * 100).toFixed(2)) : 0;
+
+  return { engagementRate, avgLikes, avgComments, avgSaved, saveRate, avgImpressions, avgReach };
 }
 
-function calculateRateCard(avgImpressions, engagementRate) {
-  const CPM = 600; // ₹600 CPM
-  const engagementMultiplier = 1 + (engagementRate / 100);
+function detectNiche(bio) {
+  const b = bio.toLowerCase();
+  if (/finance|invest|stock|crypto|trading|fintech|money|wealth|ca |chartered/.test(b)) return { name: 'Finance', multiplier: 2.5, emoji: '💰', color: '#10b981' };
+  if (/tech|software|coding|developer|ai |saas|startup|entrepreneur|founder/.test(b)) return { name: 'Tech / Business', multiplier: 2.0, emoji: '💻', color: '#6366f1' };
+  if (/health|fitness|gym|workout|nutrition|yoga|wellness|doctor|dr\.|mbbs/.test(b)) return { name: 'Health & Fitness', multiplier: 1.6, emoji: '💪', color: '#f59e0b' };
+  if (/beauty|makeup|skincare|cosmetic|hair|glam|glow/.test(b)) return { name: 'Beauty', multiplier: 1.5, emoji: '💄', color: '#ec4899' };
+  if (/travel|wanderlust|explorer|adventure|backpack/.test(b)) return { name: 'Travel', multiplier: 1.4, emoji: '✈️', color: '#0ea5e9' };
+  if (/fashion|style|outfit|ootd|model|designer|wear/.test(b)) return { name: 'Fashion', multiplier: 1.3, emoji: '👗', color: '#a855f7' };
+  if (/food|recipe|chef|cook|bake|foodie|eat|restaurant|cafe/.test(b)) return { name: 'Food', multiplier: 1.2, emoji: '🍽️', color: '#f97316' };
+  if (/education|learn|student|teacher|study|tutor|mentor/.test(b)) return { name: 'Education', multiplier: 1.8, emoji: '📚', color: '#3b82f6' };
+  if (/comedy|meme|humor|funny|entertain|actor|actress/.test(b)) return { name: 'Entertainment', multiplier: 0.9, emoji: '🎭', color: '#eab308' };
+  if (/game|gaming|gamer|esport|stream|twitch/.test(b)) return { name: 'Gaming', multiplier: 1.1, emoji: '🎮', color: '#7c3aed' };
+  return { name: 'Lifestyle', multiplier: 1.0, emoji: '✨', color: '#64748b' };
+}
 
-  const reelRate = Math.round((avgImpressions / 1000) * CPM * engagementMultiplier) || 1500; // fallback if 0
-  const storyRate = Math.round(reelRate * 0.20);
+function detectTier(followers) {
+  if (followers >= 1_000_000) return { name: 'Mega Creator', short: 'MEGA', min: 6_00_000, max: 25_00_000, color: '#f59e0b' };
+  if (followers >= 500_000)  return { name: 'Macro Creator', short: 'MACRO', min: 2_50_000, max: 6_00_000, color: '#8b5cf6' };
+  if (followers >= 100_000)  return { name: 'Mid-Tier Creator', short: 'MID', min: 75_000, max: 2_50_000, color: '#3b82f6' };
+  if (followers >= 10_000)   return { name: 'Micro Creator', short: 'MICRO', min: 10_000, max: 75_000, color: '#22c55e' };
+  return                      { name: 'Nano Creator', short: 'NANO', min: 2_000, max: 10_000, color: '#64748b' };
+}
+
+function calculateSmartRateCard(followers, engagementRate, niche, tier) {
+  // Base rate from tier range midpoint
+  const baseMidpoint = Math.round((tier.min + tier.max) / 2);
+
+  // Engagement adjustment: standard is 3%. Above = premium, below = discount
+  const engagementBonus = engagementRate >= 6 ? 1.4
+    : engagementRate >= 3 ? 1.15
+    : engagementRate >= 1 ? 0.9
+    : 0.75;
+
+  const reelRate = Math.round(baseMidpoint * niche.multiplier * engagementBonus);
   const postRate = Math.round(reelRate * 0.55);
-  const bundleRate = Math.round((reelRate + storyRate + postRate) * 0.85);
+  const storyRate = Math.round(reelRate * 0.20);
+  const bundleTotal = reelRate + postRate + storyRate;
+  const bundleRate = Math.round(bundleTotal * 0.85);
 
   return {
     reel: reelRate,
-    story: storyRate,
     post: postRate,
+    story: storyRate,
     bundle: bundleRate,
-    bundleSavings: Math.round((reelRate + storyRate + postRate) - bundleRate)
+    bundleSavings: bundleTotal - bundleRate,
+    nicheMultiplier: niche.multiplier,
+    engagementBonus: engagementBonus
   };
 }
 
 function getEngagementLabel(rate) {
   if (rate >= 6) return { label: 'Excellent', color: '#22c55e', emoji: '🚀' };
-  if (rate >= 3) return { label: 'Good', color: '#84cc16', emoji: '✅' };
-  if (rate >= 1) return { label: 'Average', color: '#f59e0b', emoji: '📊' };
-  return { label: 'Low', color: '#ef4444', emoji: '📉' };
+  if (rate >= 3) return { label: 'Good',      color: '#84cc16', emoji: '✅' };
+  if (rate >= 1) return { label: 'Average',   color: '#f59e0b', emoji: '📊' };
+  return               { label: 'Low',        color: '#ef4444', emoji: '📉' };
 }
 
 // ─── Start server ────────────────────────────────────────────────────────────
@@ -246,5 +336,4 @@ app.listen(PORT, () => {
   console.log(`\n🚀 Creatorly AI running at http://localhost:${PORT}\n`);
 });
 
-// Export for Vercel serverless
 module.exports = app;

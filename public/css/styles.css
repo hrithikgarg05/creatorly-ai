@@ -763,25 +763,187 @@ img { display: block; max-width: 100%; }
   flex-wrap: wrap;
 }
 
+/* ── Section Labels ──────────────────────────── */
+.section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* ── Tier & Niche Badges ─────────────────────── */
+.tier-badge, .niche-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+}
+
+/* ── Profile website ─────────────────────────── */
+.profile-website {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--brand);
+  margin-top: 6px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Save Rate Note ──────────────────────────── */
+.save-rate-note {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── 28-Day Insights Grid ─────────────────────── */
+.insights-section { margin-bottom: 24px; }
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.insight-card {
+  padding: 20px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+}
+.insight-icon { font-size: 1.4rem; margin-bottom: 8px; }
+.insight-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.insight-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Content Performance Grid ────────────────── */
+.content-section { margin-bottom: 24px; }
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.content-stat {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+}
+.content-icon { font-size: 1.4rem; }
+.content-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.content-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ── Best Post ────────────────────────────────── */
+.best-post-section {
+  padding: 28px;
+  margin-bottom: 24px;
+  border-radius: var(--radius);
+}
+.best-post-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.best-post-thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.best-post-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.bp-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.bp-icon { font-size: 1rem; }
+.best-post-link { margin-left: auto; }
+
+/* ── Rate Niche Info ─────────────────────────── */
+.rate-niche-info {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.rni-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
 /* ── Responsive ───────────────────────────────── */
+@media (max-width: 768px) {
+  .insights-grid { grid-template-columns: 1fr 1fr; }
+  .content-grid { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 640px) {
   .hero { padding: 80px 24px 60px; }
   .hero-title { font-size: 2.6rem; }
   .stats-strip { flex-direction: column; gap: 16px; width: 100%; }
   .stat-divider { width: 48px; height: 1px; }
   .profile-card { flex-direction: column; text-align: center; }
-  .profile-name-row { justify-content: center; }
+  .profile-name-row { justify-content: center; flex-wrap: wrap; }
   .profile-bio { max-width: 100%; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
+  .insights-grid { grid-template-columns: 1fr 1fr; }
+  .content-grid { grid-template-columns: 1fr 1fr; }
   .reels-grid { grid-template-columns: 1fr; }
   .rate-grid { grid-template-columns: 1fr 1fr; }
   .rate-card-section { padding: 28px 20px; }
   .actions-section { flex-direction: column; }
   .actions-section .btn-primary,
   .actions-section .btn-outline { width: 100%; justify-content: center; }
+  .best-post-inner { flex-direction: column; }
+  .best-post-link { margin-left: 0; }
 }
-
 @media (max-width: 400px) {
   .stats-grid { grid-template-columns: 1fr; }
+  .insights-grid { grid-template-columns: 1fr; }
+  .content-grid { grid-template-columns: 1fr; }
   .rate-grid { grid-template-columns: 1fr; }
 }
