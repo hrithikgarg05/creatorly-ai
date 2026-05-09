@@ -49,7 +49,9 @@ app.get('/profile', (req, res) => {
   res.send(html);
 });
 
-// Start OAuth
+// Start OAuth — use HTML redirect page instead of HTTP 302
+// A 302 redirect gets intercepted by the Instagram mobile app.
+// Sending an HTML page with window.location forces it to stay in the browser.
 app.get('/auth/instagram', (req, res) => {
   const scopes = [
     'instagram_business_basic',
@@ -64,7 +66,22 @@ app.get('/auth/instagram', (req, res) => {
     `&response_type=code` +
     `&scope=${encodeURIComponent(scopes)}`;
 
-  res.redirect(authUrl);
+  // Send an HTML page that redirects via JS — this keeps the flow in the browser
+  // on mobile instead of being hijacked by the Instagram app
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html><html><head>
+    <title>Connecting to Instagram...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0a0a;color:#fff;flex-direction:column;gap:16px;}</style>
+  </head><body>
+    <p style="font-size:1.2rem;">🔄 Connecting to Instagram...</p>
+    <p style="color:#888;font-size:0.85rem;">You will be redirected to Instagram to grant access.</p>
+    <script>
+      // Use location.replace to prevent Instagram app from intercepting
+      window.location.replace(${JSON.stringify(authUrl)});
+    </script>
+    <noscript><a href="${authUrl}">Click here if not redirected</a></noscript>
+  </body></html>`);
 });
 
 // OAuth callback
