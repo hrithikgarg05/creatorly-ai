@@ -204,9 +204,9 @@ app.get('/api/profile', async (req, res) => {
     // We separate base metrics from view metrics so one failing metric doesn't kill the whole response.
     const postsWithInsights = await Promise.all(
       posts.map(async (post) => {
-        // Base metrics (valid for almost all posts)
+        // Base metrics — reach, saved, impressions work for all post types
         const insightData = await graphFetchSafe(
-          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions,shares&access_token=${accessToken}`
+          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
         );
         const insightMap = {};
         if (insightData && insightData.data) {
@@ -214,6 +214,18 @@ app.get('/api/profile', async (req, res) => {
             insightMap[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
           });
         }
+
+        // Shares — only available for Reels/Videos, fetch separately so it doesn't break the main call
+        let sharesCount = 0;
+        if (post.media_type === 'VIDEO' || post.media_product_type === 'REELS') {
+          const sharesData = await graphFetchSafe(
+            `${GRAPH_BASE}/${post.id}/insights?metric=shares&access_token=${accessToken}`
+          );
+          if (sharesData && sharesData.data && sharesData.data.length > 0) {
+            sharesCount = sharesData.data[0].values?.[0]?.value ?? sharesData.data[0].value ?? 0;
+          }
+        }
+
 
         // Views: try multiple sources in order of reliability
         // The new Instagram Business Login API does not expose view_count directly.
@@ -256,7 +268,7 @@ app.get('/api/profile', async (req, res) => {
           ...post,
           reach: insightMap.reach || 0,
           saved: insightMap.saved || 0,
-          shares: insightMap.shares || 0,
+          shares: sharesCount,
           impressions: insightMap.impressions || 0,
           views: views
         };
