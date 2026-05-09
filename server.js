@@ -253,7 +253,6 @@ app.get('/api/profile', async (req, res) => {
         }
 
         return {
-        return {
           ...post,
           reach: insightMap.reach || 0,
           saved: insightMap.saved || 0,
