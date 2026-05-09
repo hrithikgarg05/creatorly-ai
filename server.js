@@ -49,9 +49,9 @@ app.get('/profile', (req, res) => {
   res.send(html);
 });
 
-// Start OAuth — use HTML redirect page instead of HTTP 302
-// A 302 redirect gets intercepted by the Instagram mobile app.
-// Sending an HTML page with window.location forces it to stay in the browser.
+// Start OAuth
+// On Android Chrome, App Links auto-open instagram.com in the Instagram app.
+// Fix: use Android intent:// URL to force Chrome to handle the URL itself.
 app.get('/auth/instagram', (req, res) => {
   const scopes = [
     'instagram_business_basic',
@@ -66,23 +66,44 @@ app.get('/auth/instagram', (req, res) => {
     `&response_type=code` +
     `&scope=${encodeURIComponent(scopes)}`;
 
-  // Send an HTML page that redirects via JS — this keeps the flow in the browser
-  // on mobile instead of being hijacked by the Instagram app
+  // Android intent:// URL forces Chrome to open the URL WITHOUT routing
+  // through Android's App Links system (which would open the Instagram app)
+  const urlWithoutScheme = authUrl.replace('https://', '');
+  const intentUrl = `intent://${urlWithoutScheme}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${encodeURIComponent(authUrl)};end`;
+
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html><html><head>
     <title>Connecting to Instagram...</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0a0a;color:#fff;flex-direction:column;gap:16px;}</style>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Outfit',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0a0a0a;color:#fff;flex-direction:column;gap:20px;padding:24px;text-align:center;}
+      .btn{display:inline-block;background:#FF5C00;color:#fff;font-size:1rem;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;margin-top:8px;}
+      .sub{color:#888;font-size:0.85rem;max-width:300px;}
+    </style>
   </head><body>
-    <p style="font-size:1.2rem;">🔄 Connecting to Instagram...</p>
-    <p style="color:#888;font-size:0.85rem;">You will be redirected to Instagram to grant access.</p>
+    <p style="font-size:1.4rem;">🔗 Connecting to Instagram...</p>
+    <p class="sub">You will be redirected to Instagram to grant access. If nothing happens, tap the button below.</p>
+    <a href="${authUrl}" class="btn" id="manualBtn">Open Instagram Login ↗</a>
     <script>
-      // Use location.replace to prevent Instagram app from intercepting
-      window.location.replace(${JSON.stringify(authUrl)});
+      const ua = navigator.userAgent || '';
+      const isAndroid = /Android/i.test(ua);
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const authUrl = ${JSON.stringify(authUrl)};
+      const intentUrl = ${JSON.stringify(intentUrl)};
+
+      if (isAndroid) {
+        // On Android: use intent URL to bypass App Link interception
+        // This tells Android to open in Chrome (browser) not the Instagram app
+        window.location.href = intentUrl;
+      } else {
+        // On iOS/desktop: direct replace works fine
+        window.location.replace(authUrl);
+      }
     </script>
-    <noscript><a href="${authUrl}">Click here if not redirected</a></noscript>
   </body></html>`);
 });
+
 
 // OAuth callback
 app.get('/auth/callback', async (req, res) => {
