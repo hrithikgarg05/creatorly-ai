@@ -41,6 +41,15 @@ app.get('/', (req, res) => {
   res.send(html);
 });
 
+// Quick auth check — used by the frontend to confirm OAuth succeeded before navigating to /profile
+app.get('/api/check-auth', (req, res) => {
+  if (req.signedCookies.ig_token) {
+    res.json({ authenticated: true });
+  } else {
+    res.status(401).json({ authenticated: false });
+  }
+});
+
 app.get('/profile', (req, res) => {
   if (!req.signedCookies.ig_token) {
     return res.redirect('/?error=session_expired');
@@ -54,6 +63,9 @@ app.get('/profile', (req, res) => {
 // On iOS: Universal Links auto-open instagram.com in the Instagram app
 //         → add #_ fragment (iOS Universal Links do NOT intercept URLs with fragments)
 app.get('/auth/instagram', (req, res) => {
+  // instagram_business_manage_insights is optional — it requires Advanced Access
+  // via Meta App Review. Include it in the scope request; Instagram will grant
+  // what it can. Users without Advanced Access will still connect with basic access.
   const scopes = [
     'instagram_business_basic',
     'instagram_business_manage_insights'
@@ -194,7 +206,7 @@ app.get('/api/profile', async (req, res) => {
       posts.map(async (post) => {
         // Base metrics (valid for almost all posts)
         const insightData = await graphFetchSafe(
-          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions&access_token=${accessToken}`
+          `${GRAPH_BASE}/${post.id}/insights?metric=reach,saved,impressions,shares&access_token=${accessToken}`
         );
         const insightMap = {};
         if (insightData && insightData.data) {
@@ -241,9 +253,11 @@ app.get('/api/profile', async (req, res) => {
         }
 
         return {
+        return {
           ...post,
           reach: insightMap.reach || 0,
           saved: insightMap.saved || 0,
+          shares: insightMap.shares || 0,
           impressions: insightMap.impressions || 0,
           views: views
         };
@@ -271,6 +285,43 @@ app.get('/api/profile', async (req, res) => {
         if (metric.name === 'impressions') totalImpressions28 = total;
         if (metric.name === 'profile_views') totalProfileViews28 = total;
       });
+    }
+
+    // 4.5 Fetch lifetime audience demographics (for Audience Match metric)
+    let demoInsights = await graphFetchSafe(
+      `${GRAPH_BASE}/me/insights?metric=audience_city,audience_gender_age&period=lifetime&access_token=${accessToken}`
+    );
+    if (!demoInsights || !demoInsights.data || demoInsights.data.length === 0) {
+      demoInsights = await graphFetchSafe(
+        `${GRAPH_BASE}/${igUserId}/insights?metric=audience_city,audience_gender_age&period=lifetime&access_token=${accessToken}`
+      );
+    }
+
+    let audienceMatchStr = null;
+    if (demoInsights && demoInsights.data) {
+      let topCity = null;
+      let topDemo = null;
+
+      const cityData = demoInsights.data.find(m => m.name === 'audience_city');
+      if (cityData?.values?.[0]?.value) {
+        const sortedCities = Object.entries(cityData.values[0].value).sort((a, b) => b[1] - a[1]);
+        if (sortedCities.length > 0) topCity = sortedCities[0][0].split(',')[0]; // Just the city name
+      }
+
+      const ageData = demoInsights.data.find(m => m.name === 'audience_gender_age');
+      if (ageData?.values?.[0]?.value) {
+        const sortedAges = Object.entries(ageData.values[0].value).sort((a, b) => b[1] - a[1]);
+        if (sortedAges.length > 0) {
+          const parts = sortedAges[0][0].split('.'); // e.g., "M.18-24" -> "M 18-24"
+          topDemo = parts.join(' ');
+        }
+      }
+
+      if (topCity && topDemo) {
+        audienceMatchStr = `${topDemo}, ${topCity}`;
+      } else if (topDemo) {
+        audienceMatchStr = topDemo;
+      }
     }
 
     // 5. Calculate metrics
@@ -365,8 +416,9 @@ app.get('/api/profile', async (req, res) => {
 
       rateCard,
       fetchedAt: new Date().toISOString(),
+      topDemographic: audienceMatchStr,
 
-      // Raw per-post data for validation
+      // Raw per-post data for validation & frontend math
       _raw: postsWithInsights.map(p => ({
         id: p.id,
         type: p.media_product_type || p.media_type,
@@ -375,6 +427,7 @@ app.get('/api/profile', async (req, res) => {
         comments: p.comments_count || 0,
         views: p.views || p.video_views || 0,
         saved: p.saved || 0,
+        shares: p.shares || 0,
         reach: p.reach || 0,
         impressions: p.impressions || 0,
         url: p.permalink

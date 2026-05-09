@@ -50,90 +50,79 @@
         </div>
       </section>
 
-      <!-- ── Core Stats (Brand View) ── -->
-      <section class="stats-section animate-fade-up delay-1">
-        <p class="section-label">📊 Core Metrics</p>
-        <div class="stats-grid">
-          <div class="stat-card glass-panel">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value" id="followersCount">—</div>
-            <div class="stat-name">Followers</div>
+      <!-- ── Brand Analytics Dashboard ── -->
+      <section class="analytics-section animate-fade-up delay-1">
+        <p class="section-label">📊 Brand & Campaign Analytics</p>
+        <div class="metrics-grid">
+          <!-- 1. Avg Reel Views -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">🎬</div>
+            <div class="metric-value" id="m_avgReelViews">—</div>
+            <div class="metric-name">Avg Reel Views</div>
+            <div class="metric-note">Expected visibility per Reel</div>
           </div>
-          <div class="stat-card glass-panel">
-            <div class="stat-icon">🔥</div>
-            <div class="stat-value engagement-value" id="engagementRateWrap">
-              <span id="engagementRate">—</span><span class="stat-unit" id="engagementRateUnit">%</span>
-            </div>
-            <div class="stat-name">Engagement Rate</div>
-            <div class="engagement-label" id="engagementLabel"></div>
-            <div class="stat-note" id="erNote" style="display:none;">Needs Live API access</div>
+          <!-- 2. Median Reel Views -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">🎯</div>
+            <div class="metric-value" id="m_medianReelViews">—</div>
+            <div class="metric-name">Median Reel Views</div>
+            <div class="metric-note">More reliable baseline view count</div>
           </div>
-          <div class="stat-card glass-panel">
-            <div class="stat-icon">📡</div>
-            <div class="stat-value" id="avgReach">—</div>
-            <div class="stat-name">Avg Reach / Post</div>
+          <!-- 3. Avg Reach -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">📡</div>
+            <div class="metric-value" id="m_avgReach">—</div>
+            <div class="metric-name">Avg Reach</div>
+            <div class="metric-note">Unique accounts reached per post</div>
           </div>
-          <div class="stat-card glass-panel">
-            <div class="stat-icon">💾</div>
-            <div class="stat-value">
-              <span id="saveRate">—</span><span class="stat-unit">%</span>
-            </div>
-            <div class="stat-name">Save Rate</div>
-            <div class="save-rate-note">Audience saves content</div>
+          <!-- 4. Reach Rate -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">📈</div>
+            <div class="metric-value"><span id="m_reachRate">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">Reach Rate</div>
+            <div class="metric-note">Distribution strength beyond followers</div>
           </div>
-        </div>
-      </section>
-
-      <!-- ── 28-Day Real Insights ── -->
-      <section class="insights-section animate-fade-up delay-2" id="insightsSection">
-        <p class="section-label">📅 Last 28 Days — Real Instagram Data</p>
-        <div class="insights-grid">
-          <div class="insight-card glass-panel">
-            <div class="insight-icon">🌍</div>
-            <div class="insight-value" id="reach28">—</div>
-            <div class="insight-label">Total Reach</div>
+          <!-- 5. Engagement by Reach -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">🔥</div>
+            <div class="metric-value"><span id="m_erByReach">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">Engagement / Reach</div>
+            <div class="metric-note">Likes+Comments+Saves+Shares / Reach</div>
           </div>
-          <div class="insight-card glass-panel">
-            <div class="insight-icon">👁️</div>
-            <div class="insight-value" id="impressions28">—</div>
-            <div class="insight-label">Total Impressions</div>
+          <!-- 6. True Engagement -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">💎</div>
+            <div class="metric-value"><span id="m_trueEr">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">True Engagement Rate</div>
+            <div class="metric-note">Removes weak "like-only" engagement</div>
           </div>
-          <div class="insight-card glass-panel">
-            <div class="insight-icon">🏠</div>
-            <div class="insight-value" id="profileViews28">—</div>
-            <div class="insight-label">Profile Views</div>
+          <!-- 7. Save Rate -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">💾</div>
+            <div class="metric-value"><span id="m_saveRate">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">Save Rate</div>
+            <div class="metric-note">Shows high-intent/reference value</div>
           </div>
-          <div class="insight-card glass-panel">
-            <div class="insight-icon">💬</div>
-            <div class="insight-value" id="avgComments">—</div>
-            <div class="insight-label">Avg Comments</div>
+          <!-- 8. Share Rate -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">📤</div>
+            <div class="metric-value"><span id="m_shareRate">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">Share Rate</div>
+            <div class="metric-note">Shows virality and word-of-mouth</div>
           </div>
-        </div>
-      </section>
-
-      <!-- ── Content Performance ── -->
-      <section class="content-section animate-fade-up delay-2">
-        <p class="section-label">🎬 Content Performance</p>
-        <div class="content-grid">
-          <div class="content-stat glass-panel">
-            <div class="content-icon">❤️</div>
-            <div class="content-value" id="avgLikes">—</div>
-            <div class="content-label">Avg Likes</div>
+          <!-- 9. Audience Match -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">🌍</div>
+            <div class="metric-value text-small" id="m_audienceMatch">—</div>
+            <div class="metric-name">Top Demographic</div>
+            <div class="metric-note">Largest audience segment</div>
           </div>
-          <div class="content-stat glass-panel">
-            <div class="content-icon">💾</div>
-            <div class="content-value" id="avgSaved">—</div>
-            <div class="content-label">Avg Saves</div>
-          </div>
-          <div class="content-stat glass-panel">
-            <div class="content-icon">👁️</div>
-            <div class="content-value" id="avgImpressions">—</div>
-            <div class="content-label">Avg Impressions</div>
-          </div>
-          <div class="content-stat glass-panel">
-            <div class="content-icon">🖼️</div>
-            <div class="content-value" id="postsCount">—</div>
-            <div class="content-label">Total Posts</div>
+          <!-- 10. Consistency Score -->
+          <div class="metric-card glass-panel">
+            <div class="metric-icon">⚖️</div>
+            <div class="metric-value"><span id="m_consistencyScore">—</span><span class="stat-unit">%</span></div>
+            <div class="metric-name">Consistency Score</div>
+            <div class="metric-note">Shows how predictable performance is</div>
           </div>
         </div>
       </section>

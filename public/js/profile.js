@@ -94,47 +94,69 @@ function renderProfile(data) {
     nicheEl.style.border = `1px solid ${data.niche.color}55`;
   }
 
-  // Core stats
+  // ─── 10 Brand Metrics Calculation ───
   setTimeout(() => {
-    animateCounter(document.getElementById('followersCount'), data.followers);
-    animateCounter(document.getElementById('engagementRate'), data.engagementRate, true);
-    animateCounter(document.getElementById('avgReach'), data.avgReach);
-    animateCounter(document.getElementById('saveRate'), data.saveRate, true);
-    // Content performance
-    animateCounter(document.getElementById('avgLikes'), data.avgLikes);
-    animateCounter(document.getElementById('avgSaved'), data.avgSaved);
-    animateCounter(document.getElementById('avgImpressions'), data.avgImpressions);
-    animateCounter(document.getElementById('postsCount'), data.totalPosts);
-    animateCounter(document.getElementById('avgComments'), data.avgComments);
+    const raw = data._raw || [];
+    const reels = raw.filter(p => p.type === 'VIDEO' || p.type === 'REELS');
+    
+    // Helpers
+    const sum = (arr, key) => arr.reduce((acc, obj) => acc + (obj[key] || 0), 0);
+    const median = (arr) => {
+      if (arr.length === 0) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+
+    // 1 & 2. Reel Views
+    const reelViews = reels.map(r => r.views || 0);
+    const totalReelViews = sum(reels, 'views');
+    const avgReelViews = reels.length > 0 ? totalReelViews / reels.length : 0;
+    const medianReelViews = median(reelViews);
+
+    // 3. Avg Reach
+    const totalReach = sum(raw, 'reach');
+    const avgReach = raw.length > 0 ? totalReach / raw.length : 0;
+    
+    // 4. Reach Rate
+    const followers = data.followers || 1; // avoid division by zero
+    const reachRate = (avgReach / followers) * 100;
+
+    // Engagement Totals
+    const totalLikes = sum(raw, 'likes');
+    const totalComments = sum(raw, 'comments');
+    const totalSaves = sum(raw, 'saved');
+    const totalShares = sum(raw, 'shares');
+    
+    // 5 & 6. Engagement Rates
+    const erByReach = totalReach > 0 ? ((totalLikes + totalComments + totalSaves + totalShares) / totalReach) * 100 : 0;
+    const trueEr = totalReach > 0 ? ((totalComments + totalSaves + totalShares) / totalReach) * 100 : 0;
+    
+    // 7 & 8. Save/Share Rates
+    const saveRate = totalReach > 0 ? (totalSaves / totalReach) * 100 : 0;
+    const shareRate = totalReach > 0 ? (totalShares / totalReach) * 100 : 0;
+
+    // 9. Audience Match (Top Demographic)
+    const topDemo = data.topDemographic || 'Data unavailable';
+
+    // 10. Consistency Score
+    const consistencyScore = avgReelViews > 0 ? (medianReelViews / avgReelViews) * 100 : 0;
+
+    // Render Metrics
+    animateCounter(document.getElementById('m_avgReelViews'), avgReelViews);
+    animateCounter(document.getElementById('m_medianReelViews'), medianReelViews);
+    animateCounter(document.getElementById('m_avgReach'), avgReach);
+    animateCounter(document.getElementById('m_reachRate'), reachRate, true);
+    animateCounter(document.getElementById('m_erByReach'), erByReach, true);
+    animateCounter(document.getElementById('m_trueEr'), trueEr, true);
+    animateCounter(document.getElementById('m_saveRate'), saveRate, true);
+    animateCounter(document.getElementById('m_shareRate'), shareRate, true);
+    
+    const demoEl = document.getElementById('m_audienceMatch');
+    if (demoEl) demoEl.textContent = topDemo;
+    
+    animateCounter(document.getElementById('m_consistencyScore'), consistencyScore, true);
   }, 300);
-
-  // Engagement rate — only show if real reach data is available
-  const erEl = document.getElementById('engagementRate');
-  const erUnitEl = document.getElementById('engagementRateUnit');
-  const erNoteEl = document.getElementById('erNote');
-  const labelEl = document.getElementById('engagementLabel');
-
-  if (data.engagementRate !== null && data.engagementRate !== undefined) {
-    animateCounter(erEl, data.engagementRate, true);
-    if (labelEl && data.engagementLabel) {
-      labelEl.textContent = data.engagementLabel.emoji + ' ' + data.engagementLabel.label;
-      labelEl.style.background = data.engagementLabel.color + '22';
-      labelEl.style.color = data.engagementLabel.color;
-      labelEl.style.border = `1px solid ${data.engagementLabel.color}44`;
-    }
-  } else {
-    if (erEl) erEl.textContent = '—';
-    if (erUnitEl) erUnitEl.style.display = 'none';
-    if (erNoteEl) erNoteEl.style.display = 'block';
-    if (labelEl) labelEl.style.display = 'none';
-  }
-
-  // 28-day insights
-  setTimeout(() => {
-    animateCounter(document.getElementById('reach28'), data.reach28);
-    animateCounter(document.getElementById('impressions28'), data.impressions28);
-    animateCounter(document.getElementById('profileViews28'), data.profileViews28);
-  }, 500);
 
   // Rate card niche info
   const rateInfoEl = document.getElementById('rateNicheInfo');

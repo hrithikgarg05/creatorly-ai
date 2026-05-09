@@ -148,24 +148,25 @@
   <script src="/js/landing.js"></script>
   <script>
     function openIGAuth() {
-      // Open OAuth in a new tab from a direct user tap.
-      // On iOS/Android, window.open() called from a click handler
-      // is treated differently from a page navigation and may
-      // prevent Universal Links from hijacking the URL.
       var w = window.open('/auth/instagram', '_blank', 'noopener,noreferrer');
       if (!w) {
         // Popup blocked — fall back to same-tab navigation
         window.location.href = '/auth/instagram';
         return;
       }
-      // When the OAuth tab completes it sets a cookie and redirects to /profile.
-      // Poll so we can redirect the original tab too if needed.
-      var poll = setInterval(function() {
+      // Poll until the new tab closes, then verify auth actually succeeded
+      var poll = setInterval(async function() {
         try {
           if (w.closed) {
             clearInterval(poll);
-            // Check if session cookie was set (profile will redirect back if not)
-            window.location.href = '/profile';
+            // Only navigate to /profile if the cookie was actually set
+            try {
+              const res = await fetch('/api/check-auth');
+              if (res.ok) {
+                window.location.href = '/profile';
+              }
+              // If not authenticated, stay on landing page (OAuth failed or was cancelled)
+            } catch(e) {}
           }
         } catch(e) {}
       }, 800);
