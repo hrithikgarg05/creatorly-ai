@@ -58,6 +58,11 @@ app.get('/profile', (req, res) => {
   res.send(html);
 });
 
+app.get('/video-lab', (req, res) => {
+  const html = fs.readFileSync(path.join(__dirname, 'public', 'video-lab.html'), 'utf8');
+  res.send(html);
+});
+
 // Start OAuth
 // On Android: App Links auto-open instagram.com in the Instagram app → use intent:// URL
 // On iOS: Universal Links auto-open instagram.com in the Instagram app
