@@ -67,8 +67,10 @@ app.get('/auth/instagram', (req, res) => {
     `&response_type=code` +
     `&scope=${encodeURIComponent(scopes)}`;
 
-  // iOS fix: add #_ fragment — Universal Links on iOS skip URLs with fragments
-  const authUrlIOS = authUrlBase + '#_';
+  // iOS fix: use api.instagram.com instead of www.instagram.com
+  // The Instagram app registers Universal Links for instagram.com & www.instagram.com
+  // but NOT for api.instagram.com — so Safari will handle it in the browser
+  const authUrlIOS = authUrlBase.replace('https://www.instagram.com', 'https://api.instagram.com');
 
   // Android fix: intent:// URL bypasses App Link routing
   const urlWithoutScheme = authUrlBase.replace('https://', '');
