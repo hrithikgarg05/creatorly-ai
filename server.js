@@ -463,49 +463,65 @@ app.get('/api/debug', async (req, res) => {
   const accessToken = req.signedCookies.ig_token;
   if (!accessToken) return res.status(401).json({ error: 'Not logged in' });
   try {
-    const profile = await graphFetch(`${GRAPH_BASE}/me?fields=id,username&access_token=${accessToken}`);
-    const media = await graphFetch(`${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type&limit=5&access_token=${accessToken}`);
+    const fetchRaw = async (url) => {
+      const { default: f } = await import('node-fetch');
+      const r = await f(url);
+      return r.json();
+    };
 
-    // Find first Reel specifically
+    const profile = await graphFetch(`${GRAPH_BASE}/me?fields=id,username,followers_count&access_token=${accessToken}`);
+    const media = await graphFetch(`${GRAPH_BASE}/me/media?fields=id,media_type,media_product_type,timestamp&limit=10&access_token=${accessToken}`);
+
     const firstReel = media.data?.find(p => p.media_type === 'VIDEO' || p.media_product_type === 'REELS');
     const firstImage = media.data?.find(p => p.media_type === 'IMAGE');
-    const testId = firstReel?.id || media.data?.[0]?.id;
 
-    // Try every possible metric name for views
-    const metricsToTry = [
-      'plays',
-      'ig_reels_video_view_total_time',
-      'clips_replays_count',
-      'video_views',
-      'reach',
-      'reach,saved,impressions,plays',
-      'reach,saved,impressions'
-    ];
-    const metricResults = {};
-    for (const metric of metricsToTry) {
-      const { default: fetch } = await import('node-fetch');
-      const url = `${GRAPH_BASE}/${testId}/insights?metric=${metric}&access_token=${accessToken}`;
-      const r = await fetch(url);
-      metricResults[metric] = await r.json(); // raw, including errors
+    // Test all useful metrics for a Reel
+    const reelMetrics = {};
+    if (firstReel) {
+      const toTest = [
+        'reach', 'saved', 'impressions', 'shares',
+        'plays', 'video_views', 'ig_reels_video_view_total_time',
+        'ig_reels_avg_watch_time', 'clips_replays_count',
+        'reach,saved,impressions', 'reach,saved,impressions,shares'
+      ];
+      for (const m of toTest) {
+        reelMetrics[m] = await fetchRaw(
+          `${GRAPH_BASE}/${firstReel.id}/insights?metric=${m}&access_token=${accessToken}`
+        );
+      }
+    }
+
+    // Test all useful metrics for an Image
+    const imageMetrics = {};
+    if (firstImage) {
+      const toTest = ['reach', 'saved', 'impressions', 'shares', 'reach,saved,impressions'];
+      for (const m of toTest) {
+        imageMetrics[m] = await fetchRaw(
+          `${GRAPH_BASE}/${firstImage.id}/insights?metric=${m}&access_token=${accessToken}`
+        );
+      }
     }
 
     // Account-level insights
     const now = Math.floor(Date.now() / 1000);
     const since28 = now - (28 * 24 * 60 * 60);
-    const { default: fetch2 } = await import('node-fetch');
-    const acctRaw = await fetch2(
+    const acctInsights = await fetchRaw(
       `${GRAPH_BASE}/me/insights?metric=reach,impressions,profile_views&period=day&since=${since28}&until=${now}&access_token=${accessToken}`
     );
-    const acctInsights = await acctRaw.json();
+    const demoInsights = await fetchRaw(
+      `${GRAPH_BASE}/me/insights?metric=audience_gender_age,audience_city&period=lifetime&access_token=${accessToken}`
+    );
 
     res.json({
       profile,
       mediaList: media.data,
-      firstReelTested: firstReel,
-      testPostId: testId,
-      metricResults,
+      firstReel,
+      firstImage,
+      reelMetrics,
+      imageMetrics,
       acctInsights,
-      instruction: 'Check metricResults — null or error means that metric is unavailable. Non-null = works.'
+      demoInsights,
+      note: 'Fields with "error" key = not available. Non-error = works. Check value inside .data[0]'
     });
   } catch (e) {
     res.status(500).json({ error: e.message, stack: e.stack });
