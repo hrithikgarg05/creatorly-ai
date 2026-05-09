@@ -62,6 +62,7 @@ app.get('/auth/instagram', (req, res) => {
   const authUrl = `https://www.instagram.com/oauth/authorize?` +
     `enable_fb_login=0` +
     `&force_authentication=1` +
+    `&auth_type=reauthenticate` +
     `&client_id=${APP_ID}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
     `&response_type=code` +
