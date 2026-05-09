@@ -59,7 +59,7 @@ app.get('/auth/instagram', (req, res) => {
     'instagram_business_manage_insights'
   ].join(',');
 
-  const authUrlBase = `https://www.instagram.com/oauth/authorize?` +
+  const authUrl = `https://www.instagram.com/oauth/authorize?` +
     `enable_fb_login=0` +
     `&force_authentication=1` +
     `&client_id=${APP_ID}` +
@@ -67,14 +67,9 @@ app.get('/auth/instagram', (req, res) => {
     `&response_type=code` +
     `&scope=${encodeURIComponent(scopes)}`;
 
-  // iOS fix: use api.instagram.com instead of www.instagram.com
-  // The Instagram app registers Universal Links for instagram.com & www.instagram.com
-  // but NOT for api.instagram.com — so Safari will handle it in the browser
-  const authUrlIOS = authUrlBase.replace('https://www.instagram.com', 'https://api.instagram.com');
-
-  // Android fix: intent:// URL bypasses App Link routing
-  const urlWithoutScheme = authUrlBase.replace('https://', '');
-  const intentUrl = `intent://${urlWithoutScheme}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${encodeURIComponent(authUrlBase)};end`;
+  // Android intent:// URL bypasses App Link routing
+  const urlWithoutScheme = authUrl.replace('https://', '');
+  const intentUrl = `intent://${urlWithoutScheme}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${encodeURIComponent(authUrl)};end`;
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html><html><head>
@@ -89,21 +84,16 @@ app.get('/auth/instagram', (req, res) => {
   </head><body>
     <p style="font-size:1.4rem;">🔗 Connecting to Instagram...</p>
     <p class="sub">If nothing happens, tap the button below.</p>
-    <a href="${authUrlIOS}" class="btn" id="manualBtn">Open Instagram Login ↗</a>
+    <a href="${authUrl}" class="btn" id="manualBtn">Open Instagram Login ↗</a>
     <script>
       const ua = navigator.userAgent || '';
       const isAndroid = /Android/i.test(ua);
-      const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
       if (isAndroid) {
-        // Android: intent URL bypasses App Links — opens in Chrome not Instagram app
+        // Android: intent URL bypasses App Links — keeps flow in Chrome
         window.location.href = ${JSON.stringify(intentUrl)};
-      } else if (isIOS) {
-        // iOS: #_ fragment bypasses Universal Links — opens in Safari not Instagram app
-        window.location.replace(${JSON.stringify(authUrlIOS)});
       } else {
-        // Desktop: plain redirect
-        window.location.replace(${JSON.stringify(authUrlBase)});
+        // iOS & Desktop: direct replace
+        window.location.replace(${JSON.stringify(authUrl)});
       }
     </script>
   </body></html>`);
