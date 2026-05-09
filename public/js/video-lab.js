@@ -13,8 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Replace with your deployed Railway app URL once deployed
-  const API_URL = 'http://localhost:3001/api/analyse'; 
-  // const API_URL = 'https://creatorly-videolab-production.up.railway.app/api/analyse';
+  const API_URL = 'https://creatorly-videolab-production.up.railway.app/api/analyse';
 
   // ─── Drag & Drop ──────────────────────────────────────────────
   dropZone.addEventListener('click', () => fileInput.click());
