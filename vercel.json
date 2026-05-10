@@ -8,6 +8,14 @@
   ],
   "rewrites": [
     {
+      "source": "/ai-analyser",
+      "destination": "https://web-production-7bc95.up.railway.app"
+    },
+    {
+      "source": "/ai-analyser/(.*)",
+      "destination": "https://web-production-7bc95.up.railway.app/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/server.js"
     }
