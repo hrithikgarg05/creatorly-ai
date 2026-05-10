@@ -13,56 +13,47 @@
 </head>
 <body class="theme-dark">
 
-  <!-- Glow effects -->
-  <div class="ambient-glow glow-1"></div>
-  <div class="ambient-glow glow-2"></div>
-  <div class="ambient-glow glow-3"></div>
-
   <!-- Navbar -->
-  <nav class="navbar glass-nav">
-    <div class="nav-container">
+  <nav class="navbar">
+    <div class="nav-container" style="justify-content: center; position: relative;">
       <a href="/" class="logo">
-        <div class="logo-icon"><i class="fa-solid fa-bolt"></i></div>
-        <span>Creatorly<span class="gradient-text">.ai</span></span>
+        <div class="logo-icon" style="color: #f59e0b;"><i class="fa-solid fa-bolt"></i></div>
+        <span>Creatorly<span class="gradient-text-purple"> AI</span></span>
       </a>
-      <div class="nav-links">
-        <a href="/" class="nav-link">Home</a>
-        <a href="/profile" class="nav-link">Analytics</a>
-        <a href="/video-lab" class="nav-link active">Video Lab</a>
-      </div>
     </div>
   </nav>
 
   <main class="lab-container">
     <header class="lab-header">
-      <h1 class="lab-title">Pre-Publish <span class="gradient-text">Video Lab</span></h1>
-      <p class="lab-subtitle">Upload your Reel draft. Get a 12-point AI analysis on hook strength, retention, and viral potential before you post.</p>
+      <div class="trend-badge">🔥 Trend-Aware Analysis</div>
+      <h1 class="lab-title">Know if your reel <br><span class="gradient-text-purple">will actually go viral</span></h1>
+      <p class="lab-subtitle">Upload your reel. Get a deep AI analysis — hook strength, retention, audio, visuals, trend-fit score, and actionable fixes in seconds.</p>
     </header>
 
     <div class="lab-content">
       <!-- Upload Section -->
-      <section class="upload-section glass-panel" id="uploadSection">
+      <section class="upload-section" id="uploadSection">
         <form id="uploadForm" class="upload-form">
           <div class="form-group drop-zone" id="dropZone">
             <input type="file" id="videoFile" name="video" accept="video/mp4,video/quicktime,video/webm" required hidden>
-            <div class="drop-zone-content">
-              <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-              <h3>Drag & Drop your Reel draft</h3>
-              <p>or <span class="text-brand">browse files</span></p>
-              <span class="file-limits">MP4, MOV up to 500MB</span>
-            </div>
+            <div class="drop-icon"><i class="fa-solid fa-clapperboard"></i></div>
+            <h3>Drop your reel here</h3>
+            <span class="file-limits">MP4, MOV, HEVC, WEBM · Max 500MB</span>
+            <button type="button" class="btn-browse" onclick="document.getElementById('videoFile').click()">Browse file</button>
           </div>
 
           <div class="form-group file-info hidden" id="fileInfo">
-            <i class="fa-solid fa-file-video"></i>
-            <span id="fileName">No file chosen</span>
+            <div class="file-info-left">
+              <i class="fa-solid fa-video"></i>
+              <span id="fileName">No file chosen</span>
+            </div>
             <button type="button" class="btn-clear" id="clearFile"><i class="fa-solid fa-xmark"></i></button>
           </div>
 
           <div class="form-group">
-            <label for="niche">Content Niche</label>
+            <label for="niche">Niche</label>
             <select id="niche" name="niche" class="form-input">
-              <option value="General">General / Lifestyle</option>
+              <option value="General">General</option>
               <option value="Comedy / Entertainment">Comedy / Entertainment</option>
               <option value="Education / Info">Education / Info</option>
               <option value="Tech / Gadgets">Tech / Gadgets</option>
@@ -75,148 +66,88 @@
           </div>
 
           <div class="form-group">
-            <label for="caption">Caption (Optional)</label>
+            <label for="caption">Caption <span style="color:var(--text-muted); font-weight:normal;">(optional)</span></label>
             <textarea id="caption" name="caption" class="form-input" placeholder="Paste your caption here..." rows="3"></textarea>
           </div>
 
           <div class="form-group">
-            <label for="hashtags">Hashtags (Optional)</label>
-            <textarea id="hashtags" name="hashtags" class="form-input" placeholder="#creatorly #viral" rows="2"></textarea>
+            <label for="hashtags">Hashtags <span style="color:var(--text-muted); font-weight:normal;">(optional)</span></label>
+            <input type="text" id="hashtags" name="hashtags" class="form-input" placeholder="#fitness #reels #viral">
           </div>
 
-          <button type="submit" class="btn-primary btn-analyse" id="analyzeBtn">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Video
+          <button type="submit" class="btn-analyse" id="analyzeBtn">
+            Analyse Reel <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
       </section>
 
       <!-- Loading State -->
-      <section class="loading-section glass-panel hidden" id="loadingSection">
+      <section class="loading-section hidden" id="loadingSection">
         <div class="loader-wrapper">
           <div class="ai-pulse"></div>
         </div>
-        <h2 id="loadingText">Extracting frames & audio...</h2>
-        <p class="loading-subtext">This takes 20-30 seconds depending on video length.</p>
+        <h2 id="loadingText" style="margin-bottom:8px;">Extracting frames & audio...</h2>
+        <p style="color:var(--text-muted); margin-bottom: 32px;">This takes 20-30 seconds depending on video length.</p>
         
-        <div class="loading-steps">
-          <div class="step active" id="step1"><i class="fa-solid fa-film"></i> Processing Video</div>
-          <div class="step" id="step2"><i class="fa-solid fa-brain"></i> Running AI Vision</div>
-          <div class="step" id="step3"><i class="fa-solid fa-chart-pie"></i> Generating Scorecard</div>
+        <div style="display:flex; flex-direction:column; gap:16px; max-width:250px; margin:0 auto; text-align:left; color:var(--text-muted);">
+          <div id="step1" style="color:white;"><i class="fa-solid fa-spinner fa-spin" style="width:24px;"></i> Processing Video</div>
+          <div id="step2"><i class="fa-solid fa-spinner" style="width:24px; opacity:0;"></i> Running AI Vision</div>
+          <div id="step3"><i class="fa-solid fa-spinner" style="width:24px; opacity:0;"></i> Generating Scorecard</div>
         </div>
       </section>
 
       <!-- Results Section -->
       <section class="results-section hidden" id="resultsSection">
+        
         <!-- Overall Score Header -->
-        <div class="score-header glass-panel">
+        <div class="score-header">
           <div class="score-circle-wrapper">
-            <div class="score-circle" id="overallScoreCircle">
-              <span class="score-number" id="overallScore">--</span>
-              <span class="score-max">/10</span>
-            </div>
-            <div class="score-label">Viral Potential</div>
+            <svg class="score-svg" viewBox="0 0 100 100">
+              <circle class="score-bg" cx="50" cy="50" r="40"></circle>
+              <circle class="score-progress" id="mainProgress" cx="50" cy="50" r="40"></circle>
+            </svg>
+            <div class="score-text-overlay" id="overallScore">2.6</div>
           </div>
           <div class="score-summary">
-            <h2 id="predictedPerformance" class="performance-badge">Analyzing...</h2>
-            <p id="overallSummary" class="summary-text">...</p>
-            <div class="tech-badges">
-              <span class="badge"><i class="fa-regular fa-clock"></i> <span id="resDuration">--</span>s</span>
-              <span class="badge"><i class="fa-solid fa-scissors"></i> <span id="resCuts">--</span> cuts</span>
-              <span class="badge"><i class="fa-solid fa-volume-high"></i> <span id="resLoudness">--</span></span>
+            <div class="score-summary-top">
+              <span class="overall-score-label">OVERALL SCORE</span>
+              <span class="performance-badge" id="predictedPerformance">⬇️ BELOW AVERAGE</span>
             </div>
+            <h2 id="overallTitle">Needs Work</h2>
+            <p id="overallSummary" class="summary-text">The clip lacks a hook, narrative, and editing to compete.</p>
           </div>
         </div>
 
-        <div class="results-grid">
-          <!-- Left Column: Categories -->
-          <div class="categories-column">
-            
-            <!-- Hook -->
-            <div class="category-card glass-panel">
-              <div class="cat-header">
-                <div class="cat-title"><i class="fa-solid fa-fish"></i> Hook Strength</div>
-                <div class="cat-score" id="scoreHook">--/10</div>
-              </div>
-              <div class="cat-body">
-                <ul class="pros-cons" id="hookNotes"></ul>
-              </div>
-            </div>
-
-            <!-- Retention -->
-            <div class="category-card glass-panel">
-              <div class="cat-header">
-                <div class="cat-title"><i class="fa-solid fa-eye"></i> Retention & Pacing</div>
-                <div class="cat-score" id="scoreRetention">--/10</div>
-              </div>
-              <div class="cat-body">
-                <ul class="pros-cons" id="retentionNotes"></ul>
-              </div>
-            </div>
-
-            <!-- Content Structure -->
-            <div class="category-card glass-panel">
-              <div class="cat-header">
-                <div class="cat-title"><i class="fa-solid fa-layer-group"></i> Content Structure</div>
-                <div class="cat-score" id="scoreStructure">--/10</div>
-              </div>
-              <div class="cat-body">
-                <ul class="pros-cons" id="structureNotes"></ul>
-              </div>
-            </div>
-
-            <!-- Audio/Visual Quality -->
-            <div class="category-card glass-panel">
-              <div class="cat-header">
-                <div class="cat-title"><i class="fa-solid fa-photo-film"></i> Audio & Visuals</div>
-                <div class="cat-score">Avg <span id="scoreAV">--/10</span></div>
-              </div>
-              <div class="cat-body">
-                <ul class="pros-cons" id="avNotes"></ul>
-              </div>
-            </div>
-
-            <!-- Caption/Hashtags -->
-            <div class="category-card glass-panel">
-              <div class="cat-header">
-                <div class="cat-title"><i class="fa-solid fa-align-left"></i> Caption & Metadata</div>
-                <div class="cat-score">Avg <span id="scoreMetadata">--/10</span></div>
-              </div>
-              <div class="cat-body">
-                <ul class="pros-cons" id="metadataNotes"></ul>
-              </div>
-            </div>
-
+        <!-- Top Wins & Fixes -->
+        <div class="action-cards">
+          <div class="action-card">
+            <h3><i class="fa-solid fa-trophy" style="color:#f59e0b;"></i> Top 3 Wins</h3>
+            <ul class="action-list" id="topWinsList"></ul>
           </div>
-
-          <!-- Right Column: Top Wins/Fixes -->
-          <div class="action-column">
-            <div class="action-card glass-panel wins-card">
-              <h3><i class="fa-solid fa-trophy text-green"></i> Top Strengths</h3>
-              <ul id="topWinsList" class="action-list"></ul>
-            </div>
-            
-            <div class="action-card glass-panel fixes-card">
-              <h3><i class="fa-solid fa-wrench text-brand"></i> Critical Fixes</h3>
-              <ul id="topFixesList" class="action-list"></ul>
-            </div>
-
-            <!-- CTA -->
-            <div class="cta-card glass-panel">
-              <div class="cta-icon"><i class="fa-brands fa-instagram"></i></div>
-              <h3>Track Your Real Stats</h3>
-              <p>Post this Reel, then connect your Instagram to see if it performs as predicted.</p>
-              <a href="/auth/instagram" class="btn-primary mt-3">Connect Instagram</a>
-            </div>
+          <div class="action-card">
+            <h3><i class="fa-solid fa-wrench" style="color:var(--text-muted);"></i> Top 3 Fixes</h3>
+            <ul class="action-list" id="topFixesList"></ul>
           </div>
         </div>
 
-        <div class="text-center mt-4 mb-5">
-          <button class="btn-secondary" id="analyzeAnotherBtn"><i class="fa-solid fa-rotate-left"></i> Analyze Another Video</button>
+        <h3 class="breakdown-header"><i class="fa-solid fa-chart-simple" style="color:var(--brand-purple-light);"></i> Score Breakdown</h3>
+
+        <!-- Masonry Grid -->
+        <div class="breakdown-grid" id="breakdownGrid">
+          <!-- Filled by JS -->
         </div>
 
+        <div style="text-align:center; margin-top:40px;">
+          <button class="btn-browse" id="analyzeAnotherBtn">Analyze Another Reel</button>
+        </div>
       </section>
+
     </div>
   </main>
+
+  <footer style="text-align:center; padding:40px 20px; color:#52525b; font-size:0.85rem;">
+    Powered by <strong>Creatorly AI</strong> &middot; creatorlyai.in
+  </footer>
 
   <script src="js/video-lab.js"></script>
 </body>

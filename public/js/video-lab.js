@@ -12,11 +12,14 @@ document.addEventListener('DOMContentLoaded', () => {
     results: document.getElementById('resultsSection')
   };
 
-  // Replace with your deployed Railway app URL once deployed
   const API_URL = 'https://creatorly-videolab-production.up.railway.app/api/analyse';
 
   // ─── Drag & Drop ──────────────────────────────────────────────
-  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('click', (e) => {
+    if (e.target.tagName !== 'BUTTON') {
+      fileInput.click();
+    }
+  });
 
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -30,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-active');
-    
     if (e.dataTransfer.files.length) {
       fileInput.files = e.dataTransfer.files;
       updateFileInfo();
@@ -63,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fileInput.files.length === 0) return alert('Please select a video file.');
 
     const formData = new FormData(form);
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
     
     showSection('loading');
     simulateLoadingSteps();
@@ -85,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
       alert('Analysis Error: ' + err.message);
       showSection('upload');
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = 'Analyse Reel <i class="fa-solid fa-arrow-right"></i>';
     }
   });
 
@@ -93,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.value = '';
     updateFileInfo();
     showSection('upload');
+    window.scrollTo(0, 0);
   });
 
   // ─── UI Helpers ───────────────────────────────────────────────
@@ -105,71 +114,157 @@ document.addEventListener('DOMContentLoaded', () => {
     const s1 = document.getElementById('step1');
     const s2 = document.getElementById('step2');
     const s3 = document.getElementById('step3');
+    const i1 = s1.querySelector('i');
+    const i2 = s2.querySelector('i');
+    const i3 = s3.querySelector('i');
     
-    s1.classList.add('active');
-    s2.classList.remove('active');
-    s3.classList.remove('active');
+    s1.style.color = 'white'; i1.classList.add('fa-spin'); i1.style.opacity = '1';
+    s2.style.color = ''; i2.classList.remove('fa-spin'); i2.style.opacity = '0';
+    s3.style.color = ''; i3.classList.remove('fa-spin'); i3.style.opacity = '0';
 
-    setTimeout(() => { s1.classList.remove('active'); s2.classList.add('active'); }, 5000);
-    setTimeout(() => { s2.classList.remove('active'); s3.classList.add('active'); }, 15000);
+    setTimeout(() => { 
+      s1.style.color = 'var(--text-muted)'; i1.classList.remove('fa-spin'); i1.className = 'fa-solid fa-check'; i1.style.color = 'var(--success)';
+      s2.style.color = 'white'; i2.className = 'fa-solid fa-spinner fa-spin'; i2.style.opacity = '1';
+    }, 4000);
+
+    setTimeout(() => { 
+      s2.style.color = 'var(--text-muted)'; i2.classList.remove('fa-spin'); i2.className = 'fa-solid fa-check'; i2.style.color = 'var(--success)';
+      s3.style.color = 'white'; i3.className = 'fa-solid fa-spinner fa-spin'; i3.style.opacity = '1';
+    }, 12000);
   }
 
   function renderResults(res) {
-    // Top summary
-    document.getElementById('overallScore').textContent = res.overall_score || '--';
-    
-    const perfText = res.predicted_performance ? res.predicted_performance.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
-    const perfEl = document.getElementById('predictedPerformance');
-    perfEl.textContent = perfText;
-    
-    if (perfText.includes('VIRAL')) perfEl.style.color = 'var(--brand)';
-    else if (perfText.includes('ABOVE')) perfEl.style.color = '#10b981';
-    else perfEl.style.color = 'var(--text)';
+    // Determine performance badge
+    const perfStr = res.predicted_performance || 'average';
+    let badgeText = 'AVERAGE';
+    let badgeClass = 'average';
+    let titleText = 'Average Potential';
+    let color = 'var(--warning)';
 
+    if (perfStr.includes('below')) {
+      badgeText = '⬇️ BELOW AVERAGE';
+      badgeClass = '';
+      titleText = 'Needs Work';
+      color = 'var(--danger)';
+    } else if (perfStr.includes('above')) {
+      badgeText = '⬆️ ABOVE AVERAGE';
+      badgeClass = 'good';
+      titleText = 'Strong Potential';
+      color = 'var(--success)';
+    } else if (perfStr.includes('viral')) {
+      badgeText = '🚀 VIRAL POTENTIAL';
+      badgeClass = 'viral';
+      titleText = 'Viral Material';
+      color = 'var(--brand-purple-light)';
+    }
+
+    const badgeEl = document.getElementById('predictedPerformance');
+    badgeEl.className = 'performance-badge ' + badgeClass;
+    badgeEl.textContent = badgeText;
+    document.getElementById('overallTitle').textContent = titleText;
+
+    // Overall Score (average of main categories)
+    const categories = ['hook', 'retention', 'visual_quality', 'audio_quality', 'content_structure', 'editing'];
+    let totalScore = 0;
+    let count = 0;
+    categories.forEach(c => {
+      if (res[c] && res[c].score) {
+        totalScore += res[c].score;
+        count++;
+      }
+    });
+    const avgScore = count > 0 ? (totalScore / count).toFixed(1) : 0;
+    
+    document.getElementById('overallScore').textContent = avgScore;
     document.getElementById('overallSummary').textContent = res.overall_summary || 'Analysis complete.';
+
+    // Progress circle
+    const progressCircle = document.getElementById('mainProgress');
+    const circumference = 251.2; // 2 * pi * 40
+    const offset = circumference - (avgScore / 10) * circumference;
+    progressCircle.style.strokeDashoffset = offset;
+    progressCircle.style.stroke = color;
+
+    // Top Wins & Fixes
+    populateList('topWinsList', res.top_3_wins || [], '<span style="color:var(--success);">●</span>');
+    populateList('topFixesList', res.top_3_fixes || [], '<span style="color:var(--danger);">●</span>');
+
+    // Build Masonry Grid
+    const grid = document.getElementById('breakdownGrid');
+    grid.innerHTML = '';
     
-    // Tech badges
-    document.getElementById('resDuration').textContent = res.video_info.duration.toFixed(1);
-    document.getElementById('resCuts').textContent = res.technical.sceneCuts;
-    document.getElementById('resLoudness').textContent = res.technical.loudnessLabel;
+    const renderCard = (title, data) => {
+      if (!data) return;
+      const score = data.score || 0;
+      let barColor = 'var(--danger)';
+      if (score >= 4) barColor = 'var(--warning)';
+      if (score >= 7) barColor = 'var(--success)';
 
-    // Categories
-    updateCategory('scoreHook', 'hookNotes', res.hook);
-    updateCategory('scoreRetention', 'retentionNotes', res.retention);
-    updateCategory('scoreStructure', 'structureNotes', res.content_structure);
-    
-    // Combined A/V
-    const avScore = Math.round(((res.audio_quality?.score || 0) + (res.visual_quality?.score || 0)) / 2) || '--';
-    document.getElementById('scoreAV').textContent = avScore + '/10';
-    const avNotes = [...(res.audio_quality?.improvements || []), ...(res.visual_quality?.improvements || [])];
-    if(avNotes.length === 0) avNotes.push("Audio and visuals look good.");
-    populateList('avNotes', avNotes.slice(0, 3));
+      let subscoresHTML = '';
+      if (data.sub_scores) {
+        Object.entries(data.sub_scores).forEach(([key, val]) => {
+          const readableKey = key.replace(/_/g, ' ').toLowerCase();
+          subscoresHTML += `<div class="bd-subscore-item"><span>${readableKey}</span><span>${val}</span></div>`;
+        });
+      }
 
-    // Combined Metadata
-    const metaScore = Math.round(((res.caption?.score || 0) + (res.hashtags?.score || 0)) / 2) || '--';
-    document.getElementById('scoreMetadata').textContent = metaScore + '/10';
-    const metaNotes = [...(res.caption?.improvements || []), ...(res.hashtags?.improvements || [])];
-    if(metaNotes.length === 0) metaNotes.push("Caption and hashtags are optimized.");
-    populateList('metadataNotes', metaNotes.slice(0, 3));
+      let strengthsHTML = '';
+      if (data.strengths && data.strengths.length > 0) {
+        strengthsHTML += `<h4>Strengths</h4><ul>`;
+        data.strengths.forEach(s => strengthsHTML += `<li>${s}</li>`);
+        strengthsHTML += `</ul>`;
+      }
 
-    // Wins / Fixes
-    populateList('topWinsList', res.top_3_wins || ['Looks good overall'], true);
-    populateList('topFixesList', res.top_3_fixes || ['No major fixes needed']);
+      let improvementsHTML = '';
+      if (data.improvements && data.improvements.length > 0) {
+        improvementsHTML += `<h4>Improvements</h4><ul>`;
+        data.improvements.forEach(s => improvementsHTML += `<li>${s}</li>`);
+        improvementsHTML += `</ul>`;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'breakdown-card';
+      card.innerHTML = `
+        <div class="bd-title">${title}</div>
+        <div class="bd-score-row">
+          <div class="bd-score-val" style="color:${barColor}">${score}</div>
+          <div class="bd-score-bar-bg">
+            <div class="bd-score-bar-fill" style="width:0%; background:${barColor};"></div>
+          </div>
+        </div>
+        <div class="bd-subscores">
+          ${subscoresHTML}
+        </div>
+        <div class="bd-notes">
+          ${strengthsHTML}
+          ${improvementsHTML}
+        </div>
+      `;
+      grid.appendChild(card);
+
+      // Animate progress bar after short delay
+      setTimeout(() => {
+        const fill = card.querySelector('.bd-score-bar-fill');
+        if (fill) fill.style.width = (score * 10) + '%';
+      }, 100);
+    };
+
+    renderCard('Hook', res.hook);
+    renderCard('Retention', res.retention);
+    renderCard('Visual Quality', res.visual_quality);
+    renderCard('Audio Quality', res.audio_quality);
+    renderCard('Content Structure', res.content_structure);
+    renderCard('Editing', res.editing);
+    if(res.text_subtitles) renderCard('Text / Subtitles', res.text_subtitles);
+    if(res.compliance) renderCard('Compliance', res.compliance);
   }
 
-  function updateCategory(scoreId, listId, data) {
-    document.getElementById(scoreId).textContent = data?.score ? data.score + '/10' : '--/10';
-    const list = data?.improvements?.length ? data.improvements : (data?.strengths?.length ? data.strengths : ['No specific notes']);
-    populateList(listId, list.slice(0, 2)); // Show top 2 points per category
-  }
-
-  function populateList(id, items, isWin = false) {
+  function populateList(id, items, iconHtml) {
     const ul = document.getElementById(id);
     ul.innerHTML = '';
-    const icon = isWin ? '<i class="fa-solid fa-check text-green"></i>' : '<i class="fa-solid fa-arrow-right"></i>';
     items.forEach(item => {
       const li = document.createElement('li');
-      li.innerHTML = `${icon} <span>${item}</span>`;
+      li.innerHTML = `${iconHtml} <span>${item}</span>`;
       ul.appendChild(li);
     });
   }
